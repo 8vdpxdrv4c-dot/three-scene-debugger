@@ -57,9 +57,11 @@ ESM 与 UMD 是不同格式；UMD 源不能同时提供原生命名导出。`nod
 
 ```sh
 npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger install
+npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger install --agent claude-code
+npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger --list-agents
 ```
 
-默认目录是当前项目 `.claude/skills/three-scene-debugger`。`--global` 安装到 `~/.claude/skills/three-scene-debugger`。`--target <目录>` 里的目录本身就是 Skill 根，直接包含 `SKILL.md`。已有非空目录不静默覆盖；内容相同则直接成功。只有已安装的本 Skill 才能用 `--force` 更新清单内的普通文件，且不删除无关文件、不覆盖符号链接。上述 GitHub 说明符指向仓库默认分支。
+不带 `--agent` 时写入项目 `.agents/skills/three-scene-debugger`。这是 Cursor、Codex、GitHub Copilot CLI、Gemini CLI、OpenCode 文档里的共享发现目录，不是 Claude Code 的文档路径。Claude Code 用 `--agent claude-code`（项目 `.claude/skills`，全局 `~/.claude/skills`）。`--agent` 可重复，或写成逗号列表；相同目标只写一次。`--global` 只使用该 agent 自己文档里的用户目录，没有文档记录就不写，也不改用 Claude 的全局目录。`--target <目录>` 只复制到这个目录，不代表任何 Agent 会自动发现它。已有非空目录不静默覆盖；内容相同则直接成功。`--force` 只更新本 Skill 的普通文件，不删除无关文件，不覆盖符号链接。非交互终端不会提问。上述 GitHub 说明符在合并后指向默认分支。
 
 运行库没有发布到 npm registry。不要使用 `npm install three-scene-debugger`，也不要使用裸 `npx three-scene-debugger`。宿主自行安装 Three；本包只把 three 声明为 peerDependency，dist 不内置第二份。本地 devDependency：`npm install -D /absolute/path/to/three-scene-debugger`。GitHub devDependency：`npm install -D github:8vdpxdrv4c-dot/three-scene-debugger`。列为 devDependency 不保证生产剔除，必须用构建期 DEV 分支并检查产物：
 
@@ -108,7 +110,7 @@ destroy 幂等；清理本实例 DOM、监听、RAF、缓存、场景/renderer/�
 
 卸载验证表在 [integration.md](references/integration.md)。阴影 mapSize 在旧 Three/PointLight cube target 的资源失效涉及所有权，必须先读 [troubleshooting.md](references/troubleshooting.md)，禁止偷偷 dispose 用户 target。
 
-## 给 Claude 的执行规则
+## 给执行此 Skill 的 Agent 的规则
 
 1. 先查现有初始化、循环、资源所有权、Three 版本、卸载/HMR 时机；不因“调试”就改应用架构。
 2. 核心实现只改 `scripts/three-scene-debugger.js`；维持 SceneDiscovery、SceneTreeBuilder、PropertyInspector、ChangeTracker、PerformanceMonitor、UILayer 分层；修改后重建两种 dist。

@@ -8,7 +8,7 @@ const { spawnSync } = require('node:child_process');
 
 const repo = path.resolve(__dirname, '..');
 const cli = path.join(repo, 'bin', 'three-scene-debugger.js');
-const { MANIFEST, SKILL_NAME, main } = require(cli);
+const { MANIFEST, SKILL_NAME, AGENTS, main, resolvePlans } = require(cli);
 const pkg = JSON.parse(fs.readFileSync(path.join(repo, 'package.json'), 'utf8'));
 const cleanup = [];
 let passed = 0;
@@ -125,7 +125,7 @@ try {
     for (const rel of required) assert.ok(MANIFEST.includes(rel), rel);
     const cliSource = fs.readFileSync(cli, 'utf8');
     assert.ok(cliSource.startsWith('#!/usr/bin/env node'));
-    for (const banned of ["child_process", "require('three'", 'require("three"', 'node:http', 'node:https', 'node:net', 'eval(', 'Function(']) {
+    for (const banned of ["child_process", "require('three'", 'require("three"', 'node:http', 'node:https', 'node:net', 'eval(', 'Function(', 'readline', 'isTTY']) {
       assert.equal(cliSource.includes(banned), false, banned);
     }
     const core = fs.readFileSync(path.join(repo, 'scripts', 'three-scene-debugger.js'), 'utf8');
@@ -149,15 +149,15 @@ try {
     expectFail(missing, /Missing command/);
     expectFail(run(['explode'], cwd, home), /Unknown command/);
     expectFail(run(['install', '--nope'], cwd, home), /Unknown option/);
-    expectFail(run(['install', '--global', '--target', path.join(cwd, 'x')], cwd, home), /not both/);
+    expectFail(run(['install', '--global', '--target', path.join(cwd, 'x')], cwd, home), /--target alone/);
     assert.equal(fs.existsSync(path.join(cwd, '.claude')), false);
     assert.equal(fs.existsSync(path.join(home, '.claude')), false);
   });
 
   test('default project install, sibling skill, idempotent rerun, and no project execution', () => {
     const cwd = tempDir('tsd-proj-');
-    fs.mkdirSync(path.join(cwd, '.claude', 'skills', 'other-skill'), { recursive: true });
-    fs.writeFileSync(path.join(cwd, '.claude', 'skills', 'other-skill', 'SKILL.md'), '---\nname: other-skill\n---\nleave me\n');
+    fs.mkdirSync(path.join(cwd, '.agents', 'skills', 'other-skill'), { recursive: true });
+    fs.writeFileSync(path.join(cwd, '.agents', 'skills', 'other-skill', 'SKILL.md'), '---\nname: other-skill\n---\nleave me\n');
     const secret = 'SECRET-' + crypto.randomBytes(16).toString('hex');
     fs.writeFileSync(path.join(cwd, '.env'), secret);
     fs.writeFileSync(path.join(cwd, 'package.json'), JSON.stringify({
@@ -169,7 +169,7 @@ try {
     try {
       const result = run(['install'], cwd, home);
       assert.equal(result.status, 0, result.stderr);
-      const dest = path.join(cwd, '.claude', 'skills', SKILL_NAME);
+      const dest = path.join(cwd, '.agents', 'skills', SKILL_NAME);
       assert.match(result.stdout, new RegExp('Installed ' + SKILL_NAME + ' ' + pkg.version));
       assert.equal(result.stdout.includes(dest), true);
       assertSkillTree(dest);
@@ -177,7 +177,8 @@ try {
       assert.equal(dumped.includes(secret), false);
       assert.equal(dumped.includes(sentinelText), false);
       assert.equal(fs.existsSync(path.join(cwd, 'pwned')), false);
-      assert.equal(fs.readFileSync(path.join(cwd, '.claude', 'skills', 'other-skill', 'SKILL.md'), 'utf8').includes('leave me'), true);
+      assert.equal(fs.readFileSync(path.join(cwd, '.agents', 'skills', 'other-skill', 'SKILL.md'), 'utf8').includes('leave me'), true);
+      assert.equal(fs.existsSync(path.join(cwd, '.claude')), false);
       const before = fs.statSync(path.join(dest, 'SKILL.md'));
       const again = run(['install'], cwd, home);
       assert.equal(again.status, 0, again.stderr);
@@ -196,9 +197,11 @@ try {
     const globalHome = tempDir('tsd-global-home-');
     const globalResult = run(['install', '--global'], cwd, globalHome);
     assert.equal(globalResult.status, 0, globalResult.stderr);
-    const globalDest = path.join(globalHome, '.claude', 'skills', SKILL_NAME);
+    const globalDest = path.join(globalHome, '.agents', 'skills', SKILL_NAME);
     assertSkillTree(globalDest);
+    assert.equal(fs.existsSync(path.join(globalHome, '.claude')), false);
     assert.equal(fs.existsSync(path.join(cwd, '.claude')), false);
+    assert.match(globalResult.stdout, /Claude Code docs do not list this path/);
     const explicit = path.join(tempDir('tsd-target-'), 'nested', 'skill');
     const target = run(['install', '--target', explicit], cwd, home);
     assert.equal(target.status, 0, target.stderr);
@@ -307,17 +310,95 @@ try {
 
   test('install from the repository does not rewrite the package source', () => {
     const project = tempDir('tsd-repo-copy-');
-    const claudeDir = path.join(repo, '.claude');
-    cleanup.push(claudeDir);
-    fs.rmSync(claudeDir, { recursive: true, force: true });
+    const agentsDir = path.join(repo, '.agents');
+    cleanup.push(agentsDir);
+    fs.rmSync(agentsDir, { recursive: true, force: true });
     // Use the real repository as cwd. The destination is inside it and gitignored.
     const result = run(['install'], repo, home);
     assert.equal(result.status, 0, result.stderr);
-    const dest = path.join(repo, '.claude', 'skills', SKILL_NAME);
+    const dest = path.join(repo, '.agents', 'skills', SKILL_NAME);
+    assert.equal(fs.existsSync(path.join(repo, '.claude')), false);
     assertSkillTree(dest);
     assert.equal(sha(path.join(repo, 'scripts', 'three-scene-debugger.js')), coreBefore);
     expectFail(run(['install', '--target', repo], project, home), /package directory itself/);
     assert.equal(sha(path.join(repo, 'scripts', 'three-scene-debugger.js')), coreBefore);
+  });
+
+  test('each documented agent maps to its own project and global directory', () => {
+    const cwd = tempDir('tsd-agents-');
+    const globalHome = tempDir('tsd-agents-home-');
+    const list = run(['--list-agents'], cwd, globalHome);
+    assert.equal(list.status, 0, list.stderr);
+    assert.equal(fs.existsSync(path.join(cwd, '.agents')), false);
+    for (const agent of AGENTS) {
+      assert.match(list.stdout, new RegExp('^' + agent.id + '\\t', 'm'));
+      assert.ok(list.stdout.includes(agent.source), agent.source);
+      const project = run(['install', '--agent', agent.id], cwd, globalHome);
+      assert.equal(project.status, 0, agent.id + '\n' + project.stderr + project.stdout);
+      assertSkillTree(path.join(cwd, ...agent.project, SKILL_NAME));
+      const globalResult = run(['install', '--global', '--agent', agent.id], cwd, globalHome);
+      assert.equal(globalResult.status, 0, agent.id + '\n' + globalResult.stderr + globalResult.stdout);
+      assertSkillTree(path.join(globalHome, ...agent.global, SKILL_NAME));
+    }
+    assert.equal(fs.existsSync(path.join(globalHome, '.claude', 'skills', SKILL_NAME)), true);
+    assert.equal(fs.existsSync(path.join(cwd, '.codex')), false);
+    const neutral = path.join(cwd, '.agents', 'skills', SKILL_NAME);
+    assert.equal(fs.existsSync(neutral), true);
+    const ignored = run(['install', '--list-agents'], cwd, globalHome);
+    assert.equal(ignored.status, 0, ignored.stderr);
+    const before = fs.statSync(path.join(neutral, 'SKILL.md')).mtimeMs;
+    const noWrite = run(['install', '--list-agents'], cwd, globalHome);
+    assert.equal(noWrite.status, 0);
+    assert.equal(fs.statSync(path.join(neutral, 'SKILL.md')).mtimeMs, before);
+  });
+
+  test('duplicate agents install once, unknown agents write nothing, and non-TTY does not prompt', () => {
+    const cwd = tempDir('tsd-dup-');
+    const globalHome = tempDir('tsd-dup-home-');
+    const repeated = run(['install', '--agent', 'cursor', '--agent', 'cursor'], cwd, globalHome);
+    assert.equal(repeated.status, 0, repeated.stderr);
+    assert.equal((repeated.stdout.match(/Installed /g) || []).length, 1);
+    const comma = run(['install', '--agent', 'cursor,cursor,claude-code'], cwd, globalHome);
+    assert.equal(comma.status, 0, comma.stderr);
+    assertSkillTree(path.join(cwd, '.cursor', 'skills', SKILL_NAME));
+    assertSkillTree(path.join(cwd, '.claude', 'skills', SKILL_NAME));
+    assert.equal(fs.existsSync(path.join(cwd, '.agents', 'skills', SKILL_NAME)), false);
+    const shared = run(['install', '--agent', 'codex', '--agent', 'agents'], cwd, globalHome);
+    assert.equal(shared.status, 0, shared.stderr);
+    assert.equal((shared.stdout.match(/Installed /g) || []).length, 1);
+    assertSkillTree(path.join(cwd, '.agents', 'skills', SKILL_NAME));
+    assert.equal(fs.existsSync(path.join(cwd, '.codex')), false);
+    const empty = tempDir('tsd-unknown-');
+    expectFail(run(['install', '--agent', 'not-a-real-agent'], empty, globalHome), /Unknown agent/);
+    assert.deepEqual(fs.readdirSync(empty), []);
+    expectFail(run(['install', '--agent', 'cursor', '--target', path.join(empty, 'custom')], empty, globalHome), /--target alone/);
+    assert.deepEqual(fs.readdirSync(empty), []);
+    assert.throws(
+      () => resolvePlans(
+        { target: null, global: true, agents: ['no-global'] },
+        [{ id: 'no-global', name: 'No Global', project: ['.no-global', 'skills'], global: null }]
+      ),
+      /no documented global/
+    );
+    const quiet = tempDir('tsd-tty-');
+    const piped = spawnSync(process.execPath, [cli, 'install'], {
+      cwd: quiet,
+      env: Object.assign({}, process.env, { HOME: globalHome, USERPROFILE: globalHome }),
+      encoding: 'utf8',
+      timeout: 8000,
+      input: '',
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+    assert.equal(piped.status, 0, piped.stdout + '\n' + piped.stderr);
+    assert.equal(piped.error, undefined);
+    assertSkillTree(path.join(quiet, '.agents', 'skills', SKILL_NAME));
+    assert.equal(fs.existsSync(path.join(quiet, '.claude')), false);
+    const blocked = tempDir('tsd-atomic-');
+    fs.mkdirSync(path.join(blocked, '.claude', 'skills', SKILL_NAME), { recursive: true });
+    fs.writeFileSync(path.join(blocked, '.claude', 'skills', SKILL_NAME, 'keep.txt'), 'keep');
+    expectFail(run(['install', '--agent', 'claude-code', '--agent', 'opencode', '--force'], blocked, globalHome), /not an installed three-scene-debugger skill/);
+    assert.equal(fs.existsSync(path.join(blocked, '.opencode')), false);
+    assert.equal(fs.readFileSync(path.join(blocked, '.claude', 'skills', SKILL_NAME, 'keep.txt'), 'utf8'), 'keep');
   });
 
   test('npm pack tarball installs through real npx and stays idempotent', () => {

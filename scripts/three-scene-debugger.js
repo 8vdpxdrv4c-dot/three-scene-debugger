@@ -1,11 +1,11 @@
-/* three-scene-debugger 0.1.0 | MIT | No imports, patches, render loop or resource disposal. */
+/* three-scene-debugger 0.2.0 | MIT | No imports, patches, render loop or resource disposal. */
 (function(root,factory){
   if(typeof module==='object'&&module.exports) module.exports=factory();
   else if(typeof define==='function'&&define.amd) define([],factory);
   else if(!root.ThreeSceneDebugger) root.ThreeSceneDebugger=factory(root);
 })(typeof globalThis!=='undefined'?globalThis:this,function(globalRoot){
 'use strict';
-const VERSION='0.1.0', PREFIX='tsd:snapshot:';
+const VERSION='0.2.0', PREFIX='tsd:snapshot:';
 let liveInstances=0;
 const publicApi={};
 const own=(o,k)=>Object.prototype.hasOwnProperty.call(o,k);
