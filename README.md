@@ -32,6 +32,38 @@ npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debug
 
 在默认分支更新前，`github:8vdpxdrv4c-dot/three-scene-debugger` 仍指向只有 README 的 `main`，上面的安装命令还不会装到本 Skill。合并后再用默认分支说明符。
 
+## 实测
+
+2026-11-09，Node v22.23.4 / npm 10.9.9。
+
+本地 tarball（`npm pack` 后）退出码 0：
+
+```sh
+npx --yes --package=./three-scene-debugger-0.1.0.tgz three-scene-debugger install --target <dir>
+npx --yes --package=./three-scene-debugger-0.1.0.tgz three-scene-debugger --version
+```
+
+`--version` 打印 `three-scene-debugger 0.1.0`。
+
+GitHub 上本次分支也退出码 0。包只有一个 bin，所以短命令会直接跑这个安装器：
+
+```sh
+npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger#cursor/publish-skill-installer-b048 three-scene-debugger install --target <dir>
+npx --yes github:8vdpxdrv4c-dot/three-scene-debugger#cursor/publish-skill-installer-b048 --version
+npx --yes github:8vdpxdrv4c-dot/three-scene-debugger#cursor/publish-skill-installer-b048 install --target <dir>
+```
+
+短命令不带 `install` 时，`--help` 和 `--version` 只打印信息，不写文件。这几条都是安装器，不是浏览器调试器。
+
+不带分支的默认说明符实测失败（退出码 254）：`main` 没有 `package.json`，npm 报 `ENOENT`。合并到默认分支之后，下面两条才会装到本包：
+
+```sh
+npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger install
+npx --yes github:8vdpxdrv4c-dot/three-scene-debugger --version
+```
+
+裸 `npx three-scene-debugger` 没有测到可用的 registry 包，也不要这样写。GitHub npx 同样会把 peer `three` 放进 npx 缓存，不放进 `--target` 目录。
+
 ## 把运行库装进应用
 
 宿主自己安装 Three。本包的 `peerDependencies.three` 是 `>=0.160.0 <1`，`dependencies` 为空。`dist/` 与 `scripts/three-scene-debugger.js` 都不包含第二份 Three。实测用本地 tarball 执行 `npx --yes --package=<tarball> three-scene-debugger install` 时，npm 会把 peer `three` 下载到 npx 自己的缓存（`~/.npm/_npx/.../node_modules/three`）。安装器不读取、不执行这份 three，也不会把它复制进 Skill 目标目录；目标目录没有 `node_modules`。
