@@ -54,6 +54,17 @@ npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debug
 
 仓库根目录有 `SKILL.md`，所以按根目录发现 Skill 的工具能看到它。2026-11-09 用第三方 CLI 对当时的 `main` 实测：`npx --yes skills add 8vdpxdrv4c-dot/three-scene-debugger --list` 找到 `three-scene-debugger`；`npx --yes skills add 8vdpxdrv4c-dot/three-scene-debugger -a cursor -s three-scene-debugger -y --copy` 退出码 0，并把文件复制到 `./.agents/skills/three-scene-debugger`。这只说明该 CLI 的 Cursor 项目安装使用共享目录，不是所有 Agent 的唯一路径，也没有启动这些 Agent。本仓库不依赖这个 CLI。
 
+本分支 `cursor/multi-agent-skill-install-b048` 用全新 npm 缓存实测，退出码都是 0，装到的 `package.json` 版本是 0.2.0：
+
+```sh
+npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger#cursor/multi-agent-skill-install-b048 three-scene-debugger --version
+npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger#cursor/multi-agent-skill-install-b048 three-scene-debugger install
+npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger#cursor/multi-agent-skill-install-b048 three-scene-debugger install --agent claude-code --agent opencode
+npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger#cursor/multi-agent-skill-install-b048 three-scene-debugger install --target <dir>
+```
+
+第一条打印 `three-scene-debugger 0.2.0`。第二条只创建 `.agents/skills/three-scene-debugger`，没有创建 `.claude`。第三条分别创建 `.claude/skills/three-scene-debugger` 和 `.opencode/skills/three-scene-debugger`，没有再写共享目录。第四条只创建 `--target` 目录。合并前不要用无 ref 的说明符来获得这套路径；当前 `main` 仍是 0.1.0。
+
 ## 把运行库装进应用
 
 宿主自己安装 Three。本包的 `peerDependencies.three` 是 `>=0.160.0 <1`，`dependencies` 为空。`dist/` 与 `scripts/three-scene-debugger.js` 都不包含第二份 Three。实测用本地 tarball 执行 `npx --yes --package=<tarball> three-scene-debugger install` 时，npm 会把 peer `three` 下载到 npx 自己的缓存（`~/.npm/_npx/.../node_modules/three`）。安装器不读取、不执行这份 three，也不会把它复制进 Skill 目标目录；目标目录没有 `node_modules`。
