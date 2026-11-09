@@ -1,0 +1,49 @@
+{
+  "name": "three-scene-debugger",
+  "version": "0.1.0",
+  "description": "Development-only Three.js scene inspector and Agent Skill. Distributed from GitHub; not published to the npm registry.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/8vdpxdrv4c-dot/three-scene-debugger.git"
+  },
+  "homepage": "https://github.com/8vdpxdrv4c-dot/three-scene-debugger#readme",
+  "bugs": {
+    "url": "https://github.com/8vdpxdrv4c-dot/three-scene-debugger/issues"
+  },
+  "main": "dist/three-scene-debugger.js",
+  "module": "dist/three-scene-debugger.mjs",
+  "exports": {
+    ".": {
+      "import": "./dist/three-scene-debugger.mjs",
+      "require": "./dist/three-scene-debugger.js"
+    }
+  },
+  "bin": {
+    "three-scene-debugger": "./bin/three-scene-debugger.js"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "scripts",
+    "references",
+    "tests",
+    "SKILL.md",
+    "LICENSE",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "peerDependencies": {
+    "three": ">=0.160.0 <1"
+  },
+  "scripts": {
+    "build": "node scripts/build.cjs",
+    "prepack": "npm run build",
+    "test": "node tests/cli.cjs",
+    "test:cli": "node tests/cli.cjs",
+    "test:runtime": "node tests/runtime.cjs",
+    "test:browser": "node tests/browser.cjs"
+  }
+}

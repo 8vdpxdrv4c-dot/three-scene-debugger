@@ -1,0 +1,33 @@
+Built UMD + named-export ESM
+(node:825416) [THREE_CJS_DEPRECATED] DeprecationWarning: `require("three")` is deprecated and will be removed.
+Replace `const THREE = require("three")` with `import * as THREE from "three"`.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+PASS scene traversal only init/open/manual refresh; FPS tick distinct from UI RAF
+PASS Object3D modification, deep-cloned userData, atomic lookAt and undo conflicts
+PASS colors, shared resources, texture needsUpdate and real material controls
+PASS camera and shadow projection matrices, renderer pixelRatio cap, controls
+PASS forbidden paths and untrusted typed payloads reject
+PASS snapshot final values, baseline cancellation, type restore and missing resources report
+PASS fog UI controls and type switching
+PASS postprocessing and mixer/action registration
+PASS name-first executable code; duplicate/empty UUID fallbacks, shared material/texture and extensions
+PASS overlapping fog edits compact; root baseline cancellation survives child-first edits
+PASS background Color->Texture->null and color UI; code runs on original null background
+PASS manual matrix updates and replacement texture upload flags
+PASS external-update undo protection and Infinity bounds restore without lossy JSON
+PASS native DOM events change values, search/filter/collapse, export output
+PASS full scene archive and opt-in localStorage namespace
+PASS multi-instance destroy clears DOM listeners RAF references; no host prototype patches/dispose
+PASS UMD browser global, no overwrite existing global; CJS and named ESM imports
+PASS userData JSON tag-like keys stay data through snapshot, undo and code
+PASS snapshot roles and named shared material/texture locators restore across rebuilt UUIDs
+PASS UMD global cleanup refcount and foreign global protection
+{"passed":20,"node":"v24.22.1","three":"187","jsdom":"31.0.0","webgl":"NOT TESTED","visual":"NOT TESTED"}
+{"passed":7,"browser":"156.0.8078.47","playwright":"1.65.0","checks":["real shadow DOM controls","numeric change","JSON export","name search","code output","UMD+ESM coexistence","destroy listeners/DOM/global"],"webgl":"NOT TESTED","visual":"NOT INSPECTED"}
+
+# Re-run in this repository on 2026-11-09. Node v22.23.4, npm 10.9.9.
+# Runtime: real Three r187 objects, renderer stub. Browser: headless DOM, --disable-gpu.
+# Neither run created a WebGLRenderer. CLI: file copy only, including npm pack + npx of that tarball.
+{"passed":20,"node":"v22.23.4","three":"187","jsdom":"31.0.0","webgl":"NOT TESTED","visual":"NOT TESTED"}
+{"passed":7,"browser":"156.0.8078.47","playwright":"1.65.0","checks":["real shadow DOM controls","numeric change","JSON export","name search","code output","UMD+ESM coexistence","destroy listeners/DOM/global"],"webgl":"NOT TESTED","visual":"NOT INSPECTED"}
+{"passed":9,"node":"v22.23.4","package":"0.1.0","webgl":"NOT TESTED","visual":"NOT TESTED","installer":"file copy only"}
