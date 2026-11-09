@@ -1,4 +1,5 @@
 node_modules/
 *.tgz
+.agents/
 .claude/
 .cli-test-sentinel

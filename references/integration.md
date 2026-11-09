@@ -61,15 +61,20 @@ npm install -D github:8vdpxdrv4c-dot/three-scene-debugger
 
 ## 方式四：把 Skill 安装给 Agent
 
-这条命令复制 Skill 文件，不启动浏览器 runtime，也不在目标项目执行 `npm install`。
+这条命令复制 Skill 文件，不启动浏览器 runtime，也不在目标项目执行 `npm install`。它不扫描项目来猜测该用哪一个 Agent，也不读取凭证。
 
 ```sh
 npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger install
-npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger install --global
+npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger install --agent claude-code
+npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger install --agent cursor,opencode
+npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger install --global --agent gemini-cli
+npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger --list-agents
 npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger install --target /absolute/path/to/three-scene-debugger
 ```
 
-默认目标是项目 `.claude/skills/three-scene-debugger`。`--global` 目标是 `~/.claude/skills/three-scene-debugger`。`--target` 给出的目录本身就是 Skill 根。仓库根目录的 `SKILL.md` 也能被 `npx skills add` 这类按目录发现 Skill 的工具看到；本仓库不依赖那个第三方 CLI。安装器拒绝静默覆盖非空的无关目录，拒绝符号链接和逃出目标目录的路径。
+不带 `--agent` 时，项目目录是 `.agents/skills/three-scene-debugger`，`--global` 是 `~/.agents/skills/three-scene-debugger`。Agent Skills 规范只规定 Skill 目录内部要有 `SKILL.md`，没有规定必须放在 `.agents/skills`。下面这些产品的官方文档写了它们会发现这个共享目录：Cursor、Codex、GitHub Copilot CLI、Gemini CLI、OpenCode。Claude Code 的官方文档写的是 `.claude/skills` 与 `~/.claude/skills`，没有写 `.agents/skills`，所以默认安装不会放到 Claude 目录。
+
+`--agent <id>` 可以重复，也可以用逗号分隔。每个 id 使用该产品文档中的目录，而不是一律写到 Claude。同一个目标路径只复制一次。`--target` 是任意目录，安装器不向任何 Agent 注册它；工具不会因此自动发现这个路径。仓库根目录的 `SKILL.md` 能被按根目录发现 Skill 的工具看到。安装器拒绝静默覆盖非空的无关目录，拒绝符号链接和逃出目标目录的路径。完整路径表和来源链接在 README，也可以运行 `--list-agents`。
 
 ## 确保生产构建剔除
 

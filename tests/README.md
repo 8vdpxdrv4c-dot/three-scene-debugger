@@ -7,7 +7,7 @@
 - Headless **Google Chrome 156.0.8078.47**，启动参数含 `--disable-gpu`。Playwright 只访问本进程 `127.0.0.1` fixture。
 - `node tests/runtime.cjs`：**20 组通过**。场景对象、材质、纹理、相机、灯、AnimationMixer 是真实 Three；renderer 是带 `info` / `shadowMap` / `getPixelRatio` 的 stub。输出里 `webgl` 与 `visual` 都是 `NOT TESTED`。
 - `node tests/browser.cjs`：**7 项 headless DOM 通过**（Shadow DOM 控件、数值 change、JSON 导出、名称搜索、代码输出、UMD/ESM 共存、destroy 清理）。没有 pageerror。同样没有 WebGL / 画面验证。
-- `node tests/cli.cjs`：**9 组通过**，只用 Node 标准库。覆盖默认项目目录、`--global`、`--target`、已有目录拒绝、相同内容幂等、`--force` 只更新本 Skill 普通文件并保留无关文件、符号链接与系统路径拒绝、`npm pack` 出的 tarball 再经真实 `npx --yes --package=<tarball> three-scene-debugger install --target ...` 安装。安装结果目录没有 `node_modules`。另一次手动 npx 观察到 npm 把 peer `three` 放进 `~/.npm/_npx` 缓存，没有放进 Skill 目录。
+- `node tests/cli.cjs`：**11 组通过**，只用 Node 标准库。覆盖共享目录默认安装、六个文档中的 agent 的项目/全局路径、重复 agent、未知 agent、非 TTY、`--target`、已有目录拒绝、幂等、`--force`、符号链接和系统路径，以及 `npm pack` tarball 的真实 npx。默认安装不会创建 `.claude`。安装结果目录没有 `node_modules`。包版本 0.2.0。另一次手动 npx 观察到 npm 把 peer `three` 放进 npx 缓存，没有放进 Skill 目录。
 - `node scripts/build.cjs` 重新生成的 UMD 与 `scripts/three-scene-debugger.js` 字节相同，ESM 与提交的 dist 字节相同。
 - **没有 GPU 渲染验证，不能宣称阴影、纹理上传或后处理画面正确。**
 

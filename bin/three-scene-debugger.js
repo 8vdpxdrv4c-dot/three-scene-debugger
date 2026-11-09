@@ -35,45 +35,155 @@ const MANIFEST = [
   'tests/runtime.cjs'
 ];
 
+const NEUTRAL = {
+  id: 'agents',
+  name: 'shared Agent Skills directory',
+  project: ['.agents', 'skills'],
+  global: ['.agents', 'skills'],
+  source: 'https://agentskills.io/specification'
+};
+
+// Paths below are the directories each product's own docs tell users to create.
+// discoversShared is true only when that same documentation also names .agents/skills.
+const AGENTS = [
+  {
+    id: 'claude-code',
+    name: 'Claude Code',
+    project: ['.claude', 'skills'],
+    global: ['.claude', 'skills'],
+    discoversShared: false,
+    source: 'https://code.claude.com/docs/en/skills'
+  },
+  {
+    id: 'cursor',
+    name: 'Cursor',
+    project: ['.cursor', 'skills'],
+    global: ['.cursor', 'skills'],
+    discoversShared: true,
+    source: 'https://cursor.com/docs/skills'
+  },
+  {
+    id: 'codex',
+    name: 'Codex',
+    project: ['.agents', 'skills'],
+    global: ['.agents', 'skills'],
+    discoversShared: true,
+    source: 'https://learn.chatgpt.com/docs/build-skills.md'
+  },
+  {
+    id: 'github-copilot',
+    name: 'GitHub Copilot CLI',
+    project: ['.github', 'skills'],
+    global: ['.copilot', 'skills'],
+    discoversShared: true,
+    source: 'https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-skills'
+  },
+  {
+    id: 'gemini-cli',
+    name: 'Gemini CLI',
+    project: ['.gemini', 'skills'],
+    global: ['.gemini', 'skills'],
+    discoversShared: true,
+    source: 'https://geminicli.com/docs/cli/skills/'
+  },
+  {
+    id: 'opencode',
+    name: 'OpenCode',
+    project: ['.opencode', 'skills'],
+    global: ['.config', 'opencode', 'skills'],
+    discoversShared: true,
+    source: 'https://opencode.ai/docs/skills/'
+  }
+];
+
+function agentById(id, catalog) {
+  if (id === NEUTRAL.id) return NEUTRAL;
+  return (catalog || AGENTS).find((agent) => agent.id === id) || null;
+}
+
+function listAgentsText() {
+  const shared = AGENTS.filter((agent) => agent.discoversShared).map((agent) => agent.id).join(', ');
+  const rows = [NEUTRAL].concat(AGENTS).map((agent) => {
+    const project = agent.project.concat(SKILL_NAME).join('/');
+    const globalDir = agent.global ? '~/' + agent.global.concat(SKILL_NAME).join('/') : '(none)';
+    return agent.id + '\t' + project + '\t' + globalDir;
+  });
+  return [
+    'three-scene-debugger skill directories',
+    '',
+    'Default when --agent is omitted (no prompt, including when stdin is not a TTY):',
+    '  project  .agents/skills/' + SKILL_NAME,
+    '  global   ~/.agents/skills/' + SKILL_NAME,
+    'Official docs that discover this shared directory: ' + shared + '.',
+    'Claude Code docs list .claude/skills and ~/.claude/skills, not .agents/skills.',
+    'The Agent Skills specification defines SKILL.md layout and does not require this path.',
+    '',
+    'id\tproject\tglobal',
+    rows.join('\n'),
+    '',
+    '--agent may be repeated or comma-separated. Duplicate ids and identical',
+    'directories are installed once. --target <dir> writes only that directory',
+    'and does not register it with an agent, so discovery is not implied.',
+    'An agent with no documented global directory is an error under --global;',
+    'the installer does not substitute another product directory.',
+    '',
+    'Sources:',
+    AGENTS.map((agent) => '  ' + agent.id + '  ' + agent.source).join('\n'),
+    '  specification  ' + NEUTRAL.source,
+    ''
+  ].join('\n');
+}
+
 const HELP = `three-scene-debugger — copy the Three.js scene debugger Agent Skill into a directory
 
 This command only copies files. It does not start the browser debugger, run
-project scripts, read secrets, or install Three.js. The debugger runtime is
-the library in dist/ and scripts/, imported by your app behind a DEV check.
+project scripts, read secrets, scan the project for agent config, or install
+Three.js. The debugger runtime is the library in dist/ and scripts/, imported
+by the app behind a DEV check.
 
 Usage:
   three-scene-debugger install [options]
+  three-scene-debugger --list-agents
   three-scene-debugger --help
   three-scene-debugger --version
 
 Options:
-  --global           Install to ~/.claude/skills/${SKILL_NAME}
-  --target <dir>     Install into this exact directory (it will contain SKILL.md)
+  --agent <id>       Install for one documented agent. Repeat or use commas.
+  --global           Use that agent's documented user directory, or the shared
+                     ~/.agents/skills directory when --agent is omitted
+  --target <dir>     Copy into this exact directory (it will contain SKILL.md)
   --force            Update an existing install of this skill
+  --list-agents      Print the path table and sources, then exit
   -h, --help         Show this help
   -v, --version      Show the package version
 
-Default directory, resolved from the current working directory:
-  .claude/skills/${SKILL_NAME}
+Default directory, from the current working directory, with no prompt:
+  .agents/skills/${SKILL_NAME}
 
---global and --target cannot be combined. --target is not shell-expanded, so
-pass a real path instead of "~". --global uses the process home directory.
-A missing directory is created.
-An empty directory is filled. If every skill file is already identical, the
-command exits 0 without rewriting files. A different existing install of this
-skill is left untouched unless --force is set. --force replaces regular files
-from this skill's file list only: it does not delete unrelated files and it
-does not replace or follow symlinks.
+That shared directory is documented for Cursor, Codex, GitHub Copilot CLI,
+Gemini CLI, and OpenCode. It is not the documented Claude Code directory.
+Use --agent claude-code for .claude/skills/${SKILL_NAME}. Run --list-agents
+for every id, project path, global path, and source URL.
+
+--target cannot be combined with --agent or --global. --target is not
+shell-expanded, so pass a real path instead of "~". A custom path is not
+automatically discovered. --global uses the process home directory only for
+a path the selected agent documents.
+
+A missing directory is created. An empty directory is filled. If every skill
+file is already identical, the command exits 0 without rewriting files. A
+different existing install of this skill is left untouched unless --force is
+set. --force replaces regular files from this skill's file list only: it does
+not delete unrelated files and it does not replace or follow symlinks.
 
 A non-empty directory that is not already this skill is refused, with or
-without --force. Paths are resolved before copying. Symlink path components,
-symlink destinations, and system directories are refused. The file list cannot
-escape the destination.
+without --force. Every destination is checked before any copy. Symlink path
+components, symlink destinations, and system directories are refused.
 
 GitHub install (the npx package runs this installer; it is not the browser UI):
   npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger install
-  npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger install --global
-  npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger install --target <dir>
+  npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger install --agent claude-code
+  npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger install --agent cursor,opencode
 
 That GitHub spec tracks the repository default branch. This package is not
 published to the npm registry; bare "npx three-scene-debugger" is not a
@@ -367,68 +477,130 @@ function commitTemp(tmp, destFile) {
   fs.renameSync(tmp, destFile);
 }
 
-function destinationFor(options) {
-  if (options.global && options.target) {
-    throw refuse('Use either --global or --target, not both');
-  }
-  if (options.global) {
-    const home = os.homedir();
-    if (!home || home === path.parse(home).root) throw refuse('Cannot resolve a safe home directory');
-    return path.join(home, '.claude', 'skills', SKILL_NAME);
-  }
-  if (options.target) return options.target;
-  return path.join(process.cwd(), '.claude', 'skills', SKILL_NAME);
+function homeDirectory() {
+  const home = os.homedir();
+  if (!home || home === path.parse(home).root) throw refuse('Cannot resolve a safe home directory');
+  return home;
 }
 
-function install(options, pkg) {
-  const requested = destinationFor(options);
-  const destRoot = resolveSafe(requested);
-  assertNotSystem(destRoot);
-  if (path.resolve(destRoot) === path.resolve(PACKAGE_ROOT)) {
-    throw refuse('Refusing to install onto the package directory itself. Use a project directory, --global, or --target.');
+function resolvePlans(options, catalog) {
+  if (options.target && (options.global || options.agents.length > 0)) {
+    throw refuse('Use --target alone. It is a custom directory, not an agent discovery path, and cannot be combined with --agent or --global.');
   }
-  const sources = loadSources();
-  for (const source of sources) {
-    const destFile = path.join(destRoot, ...source.rel.split('/'));
-    if (!isInside(destRoot, destFile)) throw refuse('Refusing path that escapes the destination: ' + destFile);
+  if (options.target) {
+    return [{ id: 'target', name: 'custom directory', requested: options.target, scope: 'custom' }];
   }
+  const scope = options.global ? 'global' : 'project';
+  const base = options.global ? homeDirectory() : process.cwd();
+  const selected = options.agents.length > 0 ? options.agents : [NEUTRAL.id];
+  const plans = [];
+  const seen = new Set();
+  for (const id of selected) {
+    const agent = agentById(id, catalog);
+    if (!agent) throw refuse('Unknown agent: ' + id + '. Run three-scene-debugger --list-agents');
+    const segments = agent[scope];
+    if (!segments) {
+      throw refuse(
+        agent.id + ' has no documented ' + scope + ' skills directory. Refusing to use another agent directory. Use --target for a custom path.'
+      );
+    }
+    const requested = path.join(base, ...segments, SKILL_NAME);
+    if (seen.has(requested)) continue;
+    seen.add(requested);
+    plans.push({ id: agent.id, name: agent.name, requested, scope });
+  }
+  return plans;
+}
+
+function discoveryNote(plan) {
+  if (plan.id === 'target') {
+    return 'Custom path: no agent is configured by this installer to discover this directory.';
+  }
+  if (plan.scope !== 'custom' && (plan.id === NEUTRAL.id || plan.id === 'codex')) {
+    const names = AGENTS.filter((agent) => agent.discoversShared).map((agent) => agent.name).join(', ');
+    return 'Shared directory. Documented discovery: ' + names + '. Claude Code docs do not list this path.';
+  }
+  return 'Documented ' + plan.scope + ' directory for ' + plan.name + '.';
+}
+
+function classifyDestination(destRoot, sources) {
   const inspected = inspectDestination(destRoot);
-  if (inspected.kind === 'foreign') {
+  if (inspected.kind === 'foreign') return 'foreign';
+  if (inspected.kind === 'skill') return planExistingSkill(destRoot, sources);
+  return 'create';
+}
+
+function install(options, pkg, catalog) {
+  const plans = resolvePlans(options, catalog);
+  const sources = loadSources();
+  const prepared = plans.map((plan) => {
+    const destRoot = resolveSafe(plan.requested);
+    assertNotSystem(destRoot);
+    if (path.resolve(destRoot) === path.resolve(PACKAGE_ROOT)) {
+      throw refuse('Refusing to install onto the package directory itself. Use a project directory, --global, or --target.');
+    }
+    for (const source of sources) {
+      const destFile = path.join(destRoot, ...source.rel.split('/'));
+      if (!isInside(destRoot, destFile)) throw refuse('Refusing path that escapes the destination: ' + destFile);
+    }
+    const action = classifyDestination(destRoot, sources);
+    return { plan, destRoot, action };
+  });
+  const foreign = prepared.filter((item) => item.action === 'foreign');
+  if (foreign.length > 0) {
     throw refuse(
-      'Refusing to overwrite existing directory (not an installed three-scene-debugger skill): ' + destRoot +
-      '\n--force only updates an existing install of this skill and does not delete unrelated files.'
+      'Refusing to overwrite existing directory (not an installed three-scene-debugger skill): ' +
+      foreign.map((item) => item.destRoot).join(', ') +
+      '\n--force only updates an existing install of this skill and does not delete unrelated files. No destination was changed.'
     );
   }
-  if (inspected.kind === 'skill') {
-    const plan = planExistingSkill(destRoot, sources);
-    if (plan === 'unchanged') {
-      console.log('Already installed (unchanged): ' + destRoot);
-      return;
+  const needsForce = prepared.filter((item) => item.action === 'differs');
+  if (needsForce.length > 0 && !options.force) {
+    throw refuse(
+      'Skill directory already exists and differs. Re-run with --force to update this skill\'s files only: ' +
+      needsForce.map((item) => item.destRoot).join(', ') +
+      '\nNo destination was changed.'
+    );
+  }
+  for (const item of prepared) {
+    if (item.action === 'unchanged') {
+      console.log('Already installed (unchanged): ' + item.destRoot);
+      console.log(discoveryNote(item.plan));
+      continue;
     }
-    if (!options.force) {
-      throw refuse('Skill directory already exists and differs. Re-run with --force to update this skill\'s files only: ' + destRoot);
-    }
+    if (item.action === 'create') mkdirSafe(item.destRoot);
     let wrote = 0;
-    for (const source of sources) wrote += writeOwnedFile(destRoot, source) ? 1 : 0;
-    console.log('Updated ' + SKILL_NAME + ' ' + pkg.version + ' at ' + destRoot + ' (' + wrote + ' files; unrelated files were left in place)');
-    return;
+    for (const source of sources) wrote += writeOwnedFile(item.destRoot, source) ? 1 : 0;
+    if (item.action === 'differs') {
+      console.log('Updated ' + SKILL_NAME + ' ' + pkg.version + ' at ' + item.destRoot + ' (' + wrote + ' files; unrelated files were left in place)');
+    } else {
+      console.log('Installed ' + SKILL_NAME + ' ' + pkg.version + ' to ' + item.destRoot);
+    }
+    console.log(discoveryNote(item.plan));
   }
-  if (options.force && inspected.kind === 'missing') {
-    // --force is unnecessary for a new directory, and it still only writes the manifest.
+}
+
+function addAgent(options, raw) {
+  if (!raw || raw.startsWith('-')) throw refuse('Missing value for --agent');
+  const parts = raw.split(',');
+  if (parts.length === 0) throw refuse('Missing value for --agent');
+  for (const part of parts) {
+    const id = part.trim();
+    if (!id) throw refuse('Missing value for --agent');
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)) throw refuse('Unknown agent: ' + id + '. Run three-scene-debugger --list-agents');
+    if (!options.agents.includes(id)) options.agents.push(id);
   }
-  mkdirSafe(destRoot);
-  for (const source of sources) writeOwnedFile(destRoot, source);
-  console.log('Installed ' + SKILL_NAME + ' ' + pkg.version + ' to ' + destRoot);
 }
 
 function parseArgs(argv) {
-  const options = { help: false, version: false, global: false, force: false, target: null, command: null };
+  const options = { help: false, version: false, listAgents: false, global: false, force: false, target: null, agents: [], command: null };
   const args = argv.slice(2);
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
     if (arg.includes('\0')) throw refuse('Invalid argument');
     if (arg === '--help' || arg === '-h') { options.help = true; continue; }
     if (arg === '--version' || arg === '-v') { options.version = true; continue; }
+    if (arg === '--list-agents') { options.listAgents = true; continue; }
     if (arg === '--global') { options.global = true; continue; }
     if (arg === '--force') { options.force = true; continue; }
     if (arg === '--target' || arg.startsWith('--target=')) {
@@ -437,6 +609,12 @@ function parseArgs(argv) {
       if (!value || value.startsWith('-')) throw refuse('Missing value for --target');
       if (options.target) throw refuse('Only one --target is allowed');
       options.target = value;
+      continue;
+    }
+    if (arg === '--agent' || arg.startsWith('--agent=')) {
+      const value = arg === '--agent' ? args[index + 1] : arg.slice('--agent='.length);
+      if (arg === '--agent') index += 1;
+      addAgent(options, value);
       continue;
     }
     if (arg === '--') continue;
@@ -453,6 +631,10 @@ function main(argv) {
   const options = parseArgs(argv || process.argv);
   if (options.help || options.command === 'help') {
     process.stdout.write(HELP);
+    return;
+  }
+  if (options.listAgents || options.command === 'list-agents') {
+    process.stdout.write(listAgentsText());
     return;
   }
   if (options.version || options.command === 'version') {
@@ -474,4 +656,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { MANIFEST, SKILL_NAME, PACKAGE_ROOT, main };
+module.exports = { MANIFEST, SKILL_NAME, PACKAGE_ROOT, AGENTS, NEUTRAL, main, resolvePlans, install };

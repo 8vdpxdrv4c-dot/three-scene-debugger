@@ -13,56 +13,57 @@ Development-only Three.js scene inspector，同时是仓库根目录可发现的
 
 ## 安装 Agent Skill
 
-默认分支包含本包之后，在项目目录执行：
+合并到默认分支之后，在项目目录执行。不带 `--agent` 时没有交互，终端是不是 TTY 都一样：
 
 ```sh
 npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger install
 ```
 
-| 方式 | 结果 |
-|---|---|
-| 上面的命令 | 当前项目 `.claude/skills/three-scene-debugger/`，目录里直接有 `SKILL.md` |
-| 加上 `--global` | `~/.claude/skills/three-scene-debugger/` |
-| `--target <目录>` | `<目录>` 本身就是 Skill 根。路径按字面解析，不会展开 `~` |
-| `--help` / `--version` | 只打印说明或版本，不写文件 |
-
-`--global` 和 `--target` 不能同时用。已存在的非空目录不会被静默覆盖。文件与这次发布完全相同时，再次执行直接成功且不改写文件。内容不同时必须显式加 `--force`；`--force` 只替换本 Skill 清单里的普通文件，不删除无关文件，也不替换或跟随符号链接。目标路径上的符号链接、逃出目标目录的路径、以及系统目录会被拒绝。
-
-仓库根目录的 `SKILL.md` 符合按目录发现 Skill 的布局（例如 `npx skills add 8vdpxdrv4c-dot/three-scene-debugger` 会看到根目录这份 Skill）。本仓库不依赖、也不调用那个第三方 CLI。
-
-在默认分支更新前，`github:8vdpxdrv4c-dot/three-scene-debugger` 仍指向只有 README 的 `main`，上面的安装命令还不会装到本 Skill。合并后再用默认分支说明符。
-
-## 实测
-
-2026-11-09，Node v22.23.4 / npm 10.9.9。
-
-本地 tarball（`npm pack` 后）退出码 0：
+这会复制到 `.agents/skills/three-scene-debugger/`。指定 Agent、全局目录或自定义路径：
 
 ```sh
-npx --yes --package=./three-scene-debugger-0.1.0.tgz three-scene-debugger install --target <dir>
-npx --yes --package=./three-scene-debugger-0.1.0.tgz three-scene-debugger --version
+npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger install --agent claude-code
+npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger install --agent cursor,opencode
+npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger install --global --agent gemini-cli
+npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger install --target ./my-skills/three-scene-debugger
+npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger --list-agents
 ```
 
-`--version` 打印 `three-scene-debugger 0.1.0`。
+`--agent` 可重复，或用逗号分隔。同一个目录只写一次。当前已发布的 `main`（0.1.0）仍默认写到 `.claude/skills`；上面的共享目录是本分支的行为，合并后才会成为默认说明符的结果。
 
-GitHub 上本次分支也退出码 0。包只有一个 bin，所以短命令会直接跑这个安装器：
+| 选择 | 项目目录 | 全局目录（`--global`） | 官方文档 |
+|---|---|---|---|
+| 省略 `--agent` | `.agents/skills/three-scene-debugger` | `~/.agents/skills/three-scene-debugger` | 见下表“会发现共享目录”的产品。规范本身不规定这个路径：<https://agentskills.io/specification> |
+| `claude-code` | `.claude/skills/three-scene-debugger` | `~/.claude/skills/three-scene-debugger` | <https://code.claude.com/docs/en/skills> |
+| `cursor` | `.cursor/skills/three-scene-debugger` | `~/.cursor/skills/three-scene-debugger` | <https://cursor.com/docs/skills> |
+| `codex` | `.agents/skills/three-scene-debugger` | `~/.agents/skills/three-scene-debugger` | <https://learn.chatgpt.com/docs/build-skills.md> |
+| `github-copilot` | `.github/skills/three-scene-debugger` | `~/.copilot/skills/three-scene-debugger` | <https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-skills> |
+| `gemini-cli` | `.gemini/skills/three-scene-debugger` | `~/.gemini/skills/three-scene-debugger` | <https://geminicli.com/docs/cli/skills/> |
+| `opencode` | `.opencode/skills/three-scene-debugger` | `~/.config/opencode/skills/three-scene-debugger` | <https://opencode.ai/docs/skills/> |
+| `--target <目录>` | 该目录本身 | 不使用 | 自定义路径。安装器不向任何 Agent 注册它 |
+
+省略 `--agent` 时，文档写明会发现 `.agents/skills` 或 `~/.agents/skills` 的是 Cursor、Codex、GitHub Copilot CLI、Gemini CLI 和 OpenCode。Claude Code 的文档没有写这个目录，所以默认安装不会放进 `.claude`。Cursor 的文档同时加载 `.agents/skills` 和 `.cursor/skills`；`--agent cursor` 写的是后者。Codex 当前文档的发现位置就是 `.agents/skills`，不是旧的 `.codex/skills`。Copilot CLI 也接受 `.agents/skills` 和 `~/.agents/skills`，`--agent github-copilot` 写的是文档里列出的 `.github/skills` 与 `~/.copilot/skills`。Gemini CLI 在同一层级里让 `.agents/skills` 优先于 `.gemini/skills`。OpenCode 还会从 `.opencode/skills` 和 `~/.config/opencode/skills` 加载，并且优先级高于共享目录。
+
+没有在上述文档里看到全局目录的 Agent 会直接报错，不会改写到 Claude 的全局目录。这次列出的六个产品都有文档中的全局目录。安装器不扫描项目，不读取凭证，也不默认把同一份 Skill 写进每一个产品目录。
+
+已有非空目录不静默覆盖。内容相同则再次执行直接成功。`--force` 只替换本 Skill 清单里的普通文件，不删除无关文件，也不替换或跟随符号链接。多个目标会先全部检查，任一拒绝则一个都不写。
+
+`--target` 不展开 `~`。把文件放到自定义目录不等于 Cursor、Claude Code 或其他工具会自动发现它。
+
+`npx` 仍然只运行安装器。没有发布到 npm registry，裸 `npx three-scene-debugger` 不可用。npx 可能把 peer `three` 放进自己的缓存，不会放进 Skill 目录。
+
+仓库根目录有 `SKILL.md`，所以按根目录发现 Skill 的工具能看到它。2026-11-09 用第三方 CLI 对当时的 `main` 实测：`npx --yes skills add 8vdpxdrv4c-dot/three-scene-debugger --list` 找到 `three-scene-debugger`；`npx --yes skills add 8vdpxdrv4c-dot/three-scene-debugger -a cursor -s three-scene-debugger -y --copy` 退出码 0，并把文件复制到 `./.agents/skills/three-scene-debugger`。这只说明该 CLI 的 Cursor 项目安装使用共享目录，不是所有 Agent 的唯一路径，也没有启动这些 Agent。本仓库不依赖这个 CLI。
+
+本分支 `cursor/multi-agent-skill-install-b048` 用全新 npm 缓存实测，退出码都是 0，装到的 `package.json` 版本是 0.2.0：
 
 ```sh
-npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger#cursor/publish-skill-installer-b048 three-scene-debugger install --target <dir>
-npx --yes github:8vdpxdrv4c-dot/three-scene-debugger#cursor/publish-skill-installer-b048 --version
-npx --yes github:8vdpxdrv4c-dot/three-scene-debugger#cursor/publish-skill-installer-b048 install --target <dir>
+npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger#cursor/multi-agent-skill-install-b048 three-scene-debugger --version
+npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger#cursor/multi-agent-skill-install-b048 three-scene-debugger install
+npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger#cursor/multi-agent-skill-install-b048 three-scene-debugger install --agent claude-code --agent opencode
+npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger#cursor/multi-agent-skill-install-b048 three-scene-debugger install --target <dir>
 ```
 
-短命令不带 `install` 时，`--help` 和 `--version` 只打印信息，不写文件。这几条都是安装器，不是浏览器调试器。
-
-不带分支的默认说明符实测失败（退出码 254）：`main` 没有 `package.json`，npm 报 `ENOENT`。合并到默认分支之后，下面两条才会装到本包：
-
-```sh
-npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger install
-npx --yes github:8vdpxdrv4c-dot/three-scene-debugger --version
-```
-
-裸 `npx three-scene-debugger` 没有测到可用的 registry 包，也不要这样写。GitHub npx 同样会把 peer `three` 放进 npx 缓存，不放进 `--target` 目录。
+第一条打印 `three-scene-debugger 0.2.0`。第二条只创建 `.agents/skills/three-scene-debugger`，没有创建 `.claude`。第三条分别创建 `.claude/skills/three-scene-debugger` 和 `.opencode/skills/three-scene-debugger`，没有再写共享目录。第四条只创建 `--target` 目录。合并前不要用无 ref 的说明符来获得这套路径；当前 `main` 仍是 0.1.0。
 
 ## 把运行库装进应用
 

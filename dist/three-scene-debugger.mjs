@@ -1,6 +1,6 @@
 const globalRoot = null;
 'use strict';
-const VERSION='0.1.0', PREFIX='tsd:snapshot:';
+const VERSION='0.2.0', PREFIX='tsd:snapshot:';
 let liveInstances=0;
 const publicApi={};
 const own=(o,k)=>Object.prototype.hasOwnProperty.call(o,k);
