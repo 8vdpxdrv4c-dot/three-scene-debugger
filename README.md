@@ -4,7 +4,7 @@ Development-only Three.js scene inspector，同时是仓库根目录可发现的
 
 **安装说明：[INSTALL.md](INSTALL.md)** —— Agent Skill 安装、运行库接入、验证、升级与常见问题。
 
-当前工作副本为 **0.8.2**：0.5.0 补上了**后期处理**与**素材库**两块能力，0.6.0 把面板本身按「能长时间用」重做了一遍，0.7.0 增加**材质切换**，0.8.0 增加**自制贴图库**，0.8.1 增加底部固定的「复制修改提示词」大按钮，0.8.2 修复剪贴板在内嵌 iframe / 非安全上下文中的复制可靠性。
+当前工作副本为 **0.8.3**：0.5.0 补上了**后期处理**与**素材库**两块能力，0.6.0 把面板本身按「能长时间用」重做了一遍，0.7.0 增加**材质切换**，0.8.0 增加**自制贴图库**，0.8.1 增加底部固定的「复制修改提示词」大按钮，0.8.2 修复剪贴板在内嵌 iframe / 非安全上下文中的复制可靠性，0.8.3 在命令区新增「AI 提示词」按钮（`aiPrompt()`）：一键生成当前场景与选中对象状态的完整提示词并复制。
 
 - 面板左边缘是一条**宽度拖拽条**（双击复位），宽度存 localStorage；标题栏下方有「展开全部 / 收起全部 / 复位布局」快捷条；分组改成了带箭头的卡片。
 - 所有滑块换成自绘轨道（填充进度 + 圆形拇指，拖动时放大发光），并把数值做成**可键入的数字框**：滑块负责探索，数字框负责精确值。
@@ -47,7 +47,7 @@ npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debug
 npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger --list-agents
 ```
 
-`--agent` 可重复，或用逗号分隔。同一个目录只写一次。当前 `main` 已是 **0.8.2**：不带 `--agent` 默认写 `.agents/skills/three-scene-debugger`，Claude Code 需显式 `--agent claude-code`。面向使用者的完整安装说明见 [INSTALL.md](INSTALL.md)。
+`--agent` 可重复，或用逗号分隔。同一个目录只写一次。当前 `main` 已是 **0.8.3**：不带 `--agent` 默认写 `.agents/skills/three-scene-debugger`，Claude Code 需显式 `--agent claude-code`。面向使用者的完整安装说明见 [INSTALL.md](INSTALL.md)。
 
 | 选择 | 项目目录 | 全局目录（`--global`） | 官方文档 |
 |---|---|---|---|

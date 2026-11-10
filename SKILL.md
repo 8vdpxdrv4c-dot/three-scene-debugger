@@ -127,7 +127,7 @@ sceneDebug = createSceneDebugger({
 | 素材贴图 | `applyAssetTexture(targetId, path, assetId, kind, opts)`，`kind` = `diff`/`nor`/`rough`/`arm`；`opts.index` 材质数组下标 |
 | 自制贴图库 | `listTexturePresets()`、`presetTexture(id, kind, size)`、`applyTexturePreset(targetId, presetId, {slots, kind, size, repeat, index})`、`materialTarget(id, slot, index)` |
 | 材质切换 | `setMaterial(id, type, opts)`、`getMaterialTypes(id?)`、`materialUsers(material)`；`opts.slot` 材质数组下标、`opts.copy:false` 不搬参数、`opts.spread:true` 同步共用该材质的对象、`opts.force:true` 同类型也重建 |
-| 改动输出 | `exportPrompt()`（0.8.2，包装成可直接发给 agent 的修改提示词）、`exportChangeMarkdown()`、`exportCode()`；面板「改动 N」支持单条 / 按对象 / 组内复制，同时 `console.info` 一行摘要。**面板底部有一个始终吸底的大按钮「复制修改提示词」**：随滚动固定在面板底部，显示改动处数、无改动时禁用，点一下即复制提示词。同一对象同一属性的多步改动在复制/导出时合并为「首次旧值 → 最终值」一行，面板仍保留逐步记录供 `undo()` |
+| 改动输出 | `exportPrompt()`（0.8.2，包装成可直接发给 agent 的修改提示词）、`exportChangeMarkdown()`、`exportCode()`；面板「改动 N」支持单条 / 按对象 / 组内复制，同时 `console.info` 一行摘要。**面板底部有一个始终吸底的大按钮「复制修改提示词」**：随滚动固定在面板底部，显示改动处数、无改动时禁用，点一下即复制提示词。同一对象同一属性的多步改动在复制/导出时合并为「首次旧值 → 最终值」一行，面板仍保留逐步记录供 `undo()`。**命令区另有「AI 提示词」按钮**（`aiPrompt(targetId?)`，0.8.3）：生成「指令前言 + 场景概览 + 选中对象全部参数 + 定位代码块 + 待应用改动」的完整提示词，写入输出框并自动复制，可直接发给 AI |
 | 属性 / 材质页签 | 选中目标后参数区分「属性」「材质」两栏：属性放 transform 等对象字段，材质放常用参数（基础色/粗糙度/金属度/不透明度/发光/开关）+「全部材质参数」折叠区；材质数组有槽位下拉。无材质的目标、场景、renderer、controls 会禁用材质页签；直接选中材质/纹理目标时强制在材质页签 |
 
 - 拖拽结束按 position / rotation / scale 各记一条，`undo()` 可回滚。被拖过的对象是否继续受应用动画驱动由宿主决定，技能只发 `onTransformStart` 回调。

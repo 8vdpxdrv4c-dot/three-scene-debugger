@@ -1,6 +1,6 @@
 const globalRoot = null;
 'use strict';
-const VERSION='0.8.2', PREFIX='tsd:snapshot:';
+const VERSION='0.8.3', PREFIX='tsd:snapshot:';
 const PANEL_CSS = `:host{all:initial}
 *{box-sizing:border-box}
 :host,section{
@@ -142,6 +142,12 @@ button.tsd-copyall.tsd-copy-ok{background:linear-gradient(135deg,#3aa76c 0%,#2c8
 button.tsd-copyall.tsd-copy-fail{background:linear-gradient(135deg,#c65b54 0%,#ad413b 100%);box-shadow:0 4px 14px rgba(173,65,59,.35)}
 button.tsd-copyall:disabled{background:var(--field);color:var(--muted);border:1px solid var(--field-line);
  box-shadow:none;cursor:not-allowed;transform:none}
+/* 命令区「AI 提示词」：紫色高亮，复用复制成功/失败闪变 */
+button.tsd-aiprompt{font-weight:700;color:#fff;border-color:transparent;
+ background:linear-gradient(135deg,#7a5cd6 0%,#5f46bb 100%);box-shadow:0 2px 8px rgba(95,70,187,.28)}
+button.tsd-aiprompt:hover{filter:brightness(1.08)}
+button.tsd-aiprompt.tsd-copy-ok{background:linear-gradient(135deg,#3aa76c 0%,#2c8f57 100%);color:#fff}
+button.tsd-aiprompt.tsd-copy-fail{background:linear-gradient(135deg,#c65b54 0%,#ad413b 100%);color:#fff}
 .tsd-row code{font:10.5px/1.4 ui-monospace,Menlo,monospace;color:var(--accent);background:transparent;padding:0;border:0}
 .tsd-row span{flex:1;min-width:0;overflow-wrap:anywhere;color:var(--fg)}
 .tsd-row button{margin:0;padding:1px 6px;font-size:10px}
@@ -429,7 +435,7 @@ class UILayer{
  this.props=this.el('div',this.body);this.props.className='tsd-pane';
  this.matBar=this.el('div',this.body);this.matBar.className='tsd-pane';
  this.syncTabs();
- const commands=this.el('div',this.body);this.button('JSON 快照',commands,()=>this.output.value=JSON.stringify(this.d.exportSnapshot(),null,2));this.button('赋值代码',commands,()=>this.output.value=this.d.exportCode());this.button('完整场景 JSON（存档）',commands,()=>this.output.value=JSON.stringify(this.d.exportFullSceneJSON(),null,2));this.button('恢复输入快照',commands,()=>{const report=this.d.loadSnapshot(this.output.value);this.output.value=JSON.stringify(report,null,2);this.inspect();});this.button('复制输出',commands,()=>this.copy(this.output.value));this.button('保存本地（显式）',commands,()=>this.d.saveSnapshot('manual'));this.button('读取本地',commands,()=>this.d.loadSavedSnapshot('manual'));this.button('清空改动记录',commands,()=>{this.d.clearChanges();this.changes();});this.output=this.el('textarea',this.body);this.output.setAttribute('aria-label','导出或导入内容');this.log=this.el('div',this.body);
+ const commands=this.el('div',this.body);this.aiPromptBtn=this.button('AI 提示词',commands,()=>{const text=this.d.aiPrompt();this.output.value=text;this.copy(text,this.aiPromptBtn);});this.aiPromptBtn.className='tsd-aiprompt';this.aiPromptBtn.title='生成当前场景与选中对象状态的 AI 提示词：自动复制，并填入下方输出框供查看/编辑';this.button('JSON 快照',commands,()=>this.output.value=JSON.stringify(this.d.exportSnapshot(),null,2));this.button('赋值代码',commands,()=>this.output.value=this.d.exportCode());this.button('完整场景 JSON（存档）',commands,()=>this.output.value=JSON.stringify(this.d.exportFullSceneJSON(),null,2));this.button('恢复输入快照',commands,()=>{const report=this.d.loadSnapshot(this.output.value);this.output.value=JSON.stringify(report,null,2);this.inspect();});this.button('复制输出',commands,()=>this.copy(this.output.value));this.button('保存本地（显式）',commands,()=>this.d.saveSnapshot('manual'));this.button('读取本地',commands,()=>this.d.loadSavedSnapshot('manual'));this.button('清空改动记录',commands,()=>{this.d.clearChanges();this.changes();});this.output=this.el('textarea',this.body);this.output.setAttribute('aria-label','导出或导入内容');this.log=this.el('div',this.body);
  /* 底部固定的大按钮：复制可直接发给 agent 的修改提示词 */
  this.copyBar=this.el('div',this.body);this.copyBar.className='tsd-copybar';
  this.copyPromptBtn=this.button('复制修改提示词',this.copyBar,()=>this.copy(this.d.exportPrompt(),this.copyPromptBtn));
@@ -1140,11 +1146,22 @@ class UILayer{
  }
  flashCopy(btn,state,n){
   if(!btn)return;
+  if(!this._copyBtns)this._copyBtns=[];
   if(this._copyT)clearTimeout(this._copyT);
+  if(!btn.dataset.tsdLabel)btn.dataset.tsdLabel=btn.textContent;
+  if(!this._copyBtns.includes(btn))this._copyBtns.push(btn);
   btn.classList.remove('tsd-copy-ok','tsd-copy-fail');
   btn.classList.add(state==='ok'?'tsd-copy-ok':'tsd-copy-fail');
   btn.textContent=state==='ok'?('✓ 已复制 '+n+' 字符'):'⚠ 自动复制被拦截，请按 Ctrl+C 复制';
-  this._copyT=setTimeout(()=>{btn.classList.remove('tsd-copy-ok','tsd-copy-fail');this.changes();},2600);
+  this._copyT=setTimeout(()=>{
+   for(const b of this._copyBtns){
+    b.classList.remove('tsd-copy-ok','tsd-copy-fail');
+    if(b!==this.copyPromptBtn)b.textContent=b.dataset.tsdLabel||'复制';
+    b.removeAttribute('data-tsd-label');
+   }
+   this._copyBtns=[];
+   this.changes();
+  },2600);
  }
  el(tag,parent,text){const e=this.doc.createElement(tag);if(text!==undefined)e.textContent=text;if(parent)parent.appendChild(e);return e;}
  on(e,type,fn){const safe=async ev=>{if(!this.d||this.d.destroyed)return;try{await fn(ev);}catch(err){this.error(err);}};e.addEventListener(type,safe);this.listeners.push([e,type,safe]);}
@@ -3438,6 +3455,83 @@ focusObject(id){
    '3. 如果要改的是源码而不是运行时状态，请把代码块转成场景初始化参数的等价修改。',''
   ];
   return head.join('\n')+this.exportChangeMarkdown();
+ }
+
+/* AI 提示词：当前场景 + 选中对象的运行时状态，包装成可直接发给 AI 的指令 */
+ aiPrompt(targetId){
+  this.assert();
+  const fmt=v=>{
+   if(v===undefined||v===null)return String(v);
+   if(typeof v==='number')return Number.isFinite(v)?String(Number(v.toFixed(4))):String(v);
+   if(typeof v==='boolean')return String(v);
+   if(typeof v==='string')return JSON.stringify(v);
+   if(typeof v==='function')return null;
+   if(v.isColor)return '#'+v.getHexString();
+   if(v.isTexture)return 'Texture('+(v.name||String(v.uuid).slice(0,8))+')';
+   if(v.isVector2||v.isVector3||v.isVector4||v.isQuaternion||v.isEuler)return '['+v.toArray().map(x=>typeof x==='number'?Number(x.toFixed(4)):JSON.stringify(x)).join(', ')+']';
+   if(v.isObject3D||v.isMaterial)return (v.type||'object')+'('+(v.name||String(v.uuid).slice(0,8))+')';
+   if(Array.isArray(v))return '['+v.length+' 项]';
+   try{const j=JSON.stringify(v);return j&&j.length<120?j:'['+(v.constructor&&v.constructor.name||'object')+']';}catch(err){return '[object]';}
+  };
+  const nodes=(this.tree&&this.tree.nodes)||[];
+  const count=f=>nodes.reduce((n,o)=>n+(f(o)?1:0),0);
+  const mats=new Set();
+  for(const o of nodes){const ms=o.material?(Array.isArray(o.material)?o.material:[o.material]):[];for(const m of ms)if(m&&m.uuid)mats.add(m.uuid);}
+  const id=targetId||(this.ui&&this.ui.targets?this.ui.targets.value:null);
+  const t=id?this.inspector.targets.get(id):null;
+  const rev=(this.THREE&&this.THREE.REVISION)||'?';
+  const lines=[
+   '# AI 提示词 · Three.js 场景状态','',
+   '我在 Three.js 页面里挂了 three-scene-debugger 调试面板。下面是当前场景与选中对象的运行时状态，请据此完成任务（修改参数、复现场景或给出改造方案）。','',
+   '要求：',
+   '1. 先读「场景概览」，再按「当前选中对象」的字段定位目标；定位表达式可直接用于运行时代码。',
+   '2. 改动请给出可直接粘贴的 js 代码块，并说明改了哪个对象、哪些参数；页面已有 scene / camera / renderer / THREE 变量。',
+   '3. 若要改源码而非运行时状态，把参数转成场景初始化代码的等价写法，保持其它对象不变。',
+   '4. 若附有「待应用改动」，优先把这些改动落到代码里；同一属性只看最终值。','',
+   '## 场景概览',
+   '- Three r'+rev+'，场景名：'+(this.scene.name||'Scene'),
+   '- 场景节点 '+nodes.length+' 个：Mesh '+count(o=>o.isMesh)+' / Light '+count(o=>o.isLight)+' / Camera '+count(o=>o.isCamera)+' / Group '+count(o=>o.isGroup),
+   '- 材质实例 '+mats.size+' 个；可编辑目标 '+this.inspector.targets.size+' 个',
+   '- 相机：'+((this.camera&&this.camera.type)||'?')+'，位置 '+(this.camera&&this.camera.position?fmt(this.camera.position):'?'),
+   '- 渲染器：toneMapping='+(this.renderer?this.renderer.toneMapping:'?')+'，outputColorSpace='+(this.renderer?this.renderer.outputColorSpace:'?')+'，阴影='+((this.renderer&&this.renderer.shadowMap)?this.renderer.shadowMap.enabled:'?'),''
+  ];
+  if(t){
+   const o=t.object;
+   lines.push('## 当前选中对象',
+    '- 名称：'+(o.name||'(未命名)'),
+    '- 类型：'+((o.type)||(o.constructor&&o.constructor.name)||'unknown')+'，目标类别：'+((t.locator&&t.locator.kind)||'target'),
+    '- UUID：'+String(o.uuid||t.id),
+    '- 定位表达式：`'+t.expr+'`','',
+    '```js','const tsd = window.__tsd;','const target = '+t.expr+';','```','');
+   const fields=[];
+   for(const [p] of t.fields){
+    if(fields.length>=140){fields.push('- … 其余字段省略（共 '+t.fields.size+' 项）');break;}
+    let v;try{v=get(o,p);}catch(err){continue;}
+    if(v===undefined)continue;
+    const text=fmt(v);
+    if(text===null)continue;
+    fields.push('- `'+p+'`: '+text);
+   }
+   lines.push('### 当前参数（'+fields.length+' 项）',...fields,'');
+   if(o.material){
+    const ms=Array.isArray(o.material)?o.material:[o.material];
+    lines.push('### 材质');
+    ms.forEach((m,i)=>{
+     if(!m)return;
+     lines.push('- ['+i+'] '+(m.type||'Material')+(m.name?' · '+m.name:'')+'：color='+fmt(m.color)+'，roughness='+fmt(m.roughness)+'，metalness='+fmt(m.metalness)+'，opacity='+fmt(m.opacity));
+    });
+    lines.push('');
+   }
+  }else{
+   lines.push('## 当前选中对象','（未选中对象：在面板里选一个目标后再点「AI 提示词」可带上完整参数）','');
+  }
+  const recs=this.tracker.collapse();
+  if(recs.length){
+   const md=this.exportChangeMarkdown().replace(/\n---\n由 three-scene-debugger [^\n]*$/,'');
+   lines.push('## 待应用改动（'+recs.length+' 处）','',md,'');
+  }
+  lines.push('---','由 three-scene-debugger '+VERSION+' 生成。','');
+  return lines.join('\n');
  }
  undo(id){this.assert();this.tracker.undo(id);const t=this.inspector.byObject.get(this.scene);for(const key of [...t.fields.keys()])if(key.startsWith('fog.'))t.fields.delete(key);if(this.scene.fog){this.inspector.field(t,'fog.color','color');for(const k of this.scene.fog.isFog?['near','far']:['density'])this.inspector.field(t,'fog.'+k);}this.ui.changes();}
  clearChanges(){this.assert();this.tracker.clear();this.ui.changes();}

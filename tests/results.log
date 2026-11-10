@@ -62,3 +62,8 @@ PASS UMD global cleanup refcount and foreign global protection
 # User-visible symptom was silent copy failure inside embedded preview iframes (no clipboard-write
 # permission) and insecure http origins. copy-prompt suite now 19/19 incl. forced-failure and
 # legacy-only scenarios; core/ui/merge/export/texture-library regressions green.
+
+# 0.8.3, 2026-11-10. New "AI prompt" command button + aiPrompt() API: instruction preamble,
+# scene overview, selected object fields, targeting code block, pending changes.
+# Verified via Playwright/SwiftShader: ai-prompt suite 27/27, five-page aiPrompt() 5/5,
+# core 60/60, export 17/17, ui, merge, copy-prompt 19/19 regressions green; console clean.

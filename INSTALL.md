@@ -6,7 +6,7 @@
 | 项 | 值 |
 |---|---|
 | 仓库 | <https://github.com/8vdpxdrv4c-dot/three-scene-debugger> |
-| 当前版本 | 0.8.2 |
+| 当前版本 | 0.8.3 |
 | 许可 | MIT |
 | 运行环境 | Node ≥ 18；宿主页面自带 `three` ≥ 0.160 且 < 1 |
 | 分发方式 | GitHub（`main` 分支），**未发布到 npm registry** |
@@ -120,7 +120,7 @@ ls .agents/skills/three-scene-debugger
 #    左上角出现红色「3D场景调试大师」按钮 → 点开 → 选中物体 → 材质页 → 贴图库
 ```
 
-`--version` 应打印 `three-scene-debugger 0.8.2`。
+`--version` 应打印 `three-scene-debugger 0.8.3`。
 
 ---
 
@@ -140,7 +140,7 @@ ls .agents/skills/three-scene-debugger
 | 问题 | 处理 |
 |---|---|
 | `npm ERR! 404` / 装不到包 | 本包不在 npm registry，必须用 `github:` 说明符或本地路径 |
-| npx 拉到旧版本 | 加 `--yes`，或清 `~/.npm/_npx` 缓存，或写死 `#main` / commit；当前 `main` 就是 0.8.2 |
+| npx 拉到旧版本 | 加 `--yes`，或清 `~/.npm/_npx` 缓存，或写死 `#main` / commit；当前 `main` 就是 0.8.3 |
 | 私有网络 / 公司代理拉不到 GitHub | 先 `git clone` 仓库，再用本地路径：`npm install -D /path/to/three-scene-debugger`，安装器用 `node bin/three-scene-debugger.js install` |
 | 页面报 `THREE` 相关错误 | 传页面已有的同一份 `THREE`，不要 import 第二份 |
 | 生产包里还带着调试器 | 确认 `import.meta.env.DEV` 分支被构建工具消除，检查产物 |
