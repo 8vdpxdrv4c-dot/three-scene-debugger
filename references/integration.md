@@ -95,8 +95,9 @@ Webpack 等用其能常量折叠的 `process.env.NODE_ENV !== 'production'`，�
 
 | API | 行为 |
 |---|---|
-| `createSceneDebugger({scene,camera,renderer,container?,THREE?,controls?,pixelRatioCap?,storage?})` | 初始化打开面板并遍历一次；storage 可注入 Storage 同构对象 |
-| `open()/close()/refresh()` | open 仅从关闭状态重开时遍历；refresh 显式重建缓存树；close 保留运行态 |
+| `createSceneDebugger({scene,camera,renderer,container?,THREE?,controls?,pixelRatioCap?,storage?,transformControls?,picking?,lightHelpers?,shadowHelpers?,envAsBackground?,logChanges?,onSelect?,onDeselect?,onToggle?,onTransformStart?,onTransform?,onTransformEnd?,onMode?})` | 初始化面板（默认关闭，只在左上角留红色入口按钮「3D场景调试大师」）并遍历一次；storage 可注入 Storage 同构对象 |
+| `open()/close()/refresh()/isOpen()` | open 从关闭状态重开时遍历一次；close 隐藏面板并清空选中（点选/拖拽同时停用）；refresh 显式重建缓存树；isOpen 返回面板当前开关态 |
+| `selectTarget(id)` | 必要时先打开面板、定位目标下拉、渲染属性并滚动到属性区；不重建场景树 |
 | `set(target, propertyPath, value)` | target 为对象引用、target ID 或 Object3D uuid；返回改动记录或 null |
 | `lookAt(cameraTarget,x,y,z)` | 原子记录 Euler rotation，可撤销 |
 | `tick(timeMs?)` | 传用户渲染帧的高精度毫秒时间；不调用 render |
@@ -108,10 +109,24 @@ Webpack 等用其能常量折叠的 `process.env.NODE_ENV !== 'production'`，�
 | `exportCode()/exportFullSceneJSON()` | 返回 JS 字符串/原始 scene.toJSON() 对象 |
 | `saveSnapshot(name?)/loadSavedSnapshot(name?)` | 显式 localStorage 持久化，默认 name=manual，前缀 `tsd:snapshot:` |
 | `destroy({clearStorage?:true})` | 幂等释放实例；clearStorage 清除此 origin 全部此前缀键，包括其他调试实例快照 |
+| `setPicking(bool)` | 开关画布点选；关闭时清除当前选中 |
+| `selectObject(objOrId)/getSelected()/clearSelection()` | 用对象引用、uuid 或唯一 name 选中；选中会展开面板并定位属性 |
+| `setTransformMode(mode)/getTransformMode()/getGizmo()` | `translate` / `rotate` / `scale`；画布上 W/E/R 切换，Esc 取消选中 |
+| `setLightHelpers(bool)/setShadowHelpers(bool)` | 光源 helper 与阴影相机 helper；默认开启，helper 可点选但不在场景树里 |
+| `setEnvironment(id)/getEnvironment()/setEnvBackground(bool)` | 预设 `none` / `studio` / `sunset` / `night` / `white` / `gray`；PMREM 程序化生成，首次切换会记录原 environment/background，切回 none 恢复 |
+| `preview(id,path,value)/commitPreview(id,path,value)` | 滑块拖动用：先实时写值，松手时以拖动前的旧值记一条改动 |
+| `exportChangeMarkdown()` | 按对象分组的 Markdown 改动清单，含 `const target = ...` 定位表达式，可直接贴给 agent；同一对象同一属性多步改动只输出「首次旧值 → 最终值」一行 |
 
 目标 ID：`object:<uuid>`（包含 scene/camera/light）、`material:<uuid>`、`texture:<uuid>`、`renderer`、`controls`、`pass:<index>`、`mixer:<registrationIndex>`、`action:<mixerIndex>:<index>`。共享材质/纹理按引用去重，定位到缓存中第一个拥有者。脱离场景后不能跨应用自动寻回：先刷新、注册资源，并检查恢复报告。
 
-UI 包含树、搜索、类型过滤、目标下拉、属性编辑、相机 lookAt、逐条撤销、按对象改动、JSON/代码/存档导出、输入快照恢复、本地显式保存/读取。可直接选择复制 textarea，Clipboard API 要求安全上下文和权限。CSS 在 ShadowRoot 中隔离；container 只决定挂载点，面板默认 fixed。
+编辑器层（0.4.0）的对象归属：
+- 选中包围盒、`TransformControls` gizmo 都标 `userData.tsdIgnore`，不进树、不参与拾取。
+- 光源 helper 同时标 `tsdIgnore` 与 `tsdTarget=<light.uuid>`：不进树，但射线拾取会命中并映射回光源，因此可以直接点 helper 选中光源再拖拽。
+- 环境贴图的 PMREM 渲染目标是技能自建的，`destroy()` 会 dispose；`scene.environment/background` 只在用户主动切换预设时改动，`none` 会恢复进入时的原值。
+
+场景树默认从 scene 深度遍历。编辑器/调试用的辅助对象（`TransformControls` 的 gizmo、`BoxHelper`、临时 axes/grid）可设置 `object.userData.tsdIgnore = true`，该子树连同所有后代都不会进入场景树、目标下拉与属性检查，`refresh()` 后仍然跳过。调试器自身从不向用户对象写入 userData，只读取这一约定标记。
+
+UI 包含一个常驻左上角的红色入口按钮「3D场景调试大师」（`position:fixed`、`z-index:2147483647`、ShadowRoot 内隔离）和由它开关的参数面板；面板标题栏可拖拽（限制在视口内，双击复位到默认右上角位置），默认关闭。面板内包含树、搜索、类型过滤、目标下拉、**属性 / 材质两个页签**（属性＝transform 等对象字段；材质＝常用参数快捷区 + 「全部材质参数」折叠区，材质数组带槽位下拉）、相机 lookAt、逐条撤销、按对象改动、JSON/代码/存档导出、输入快照恢复、本地显式保存/读取。可直接选择复制 textarea，Clipboard API 要求安全上下文和权限。CSS 在 ShadowRoot 中隔离；container 只决定挂载点，面板与入口按钮均为 fixed。
 
 ## destroy 清单与卸载验证
 

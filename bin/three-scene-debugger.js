@@ -22,10 +22,14 @@ const MANIFEST = [
   'dist/three-scene-debugger.js',
   'dist/three-scene-debugger.mjs',
   'package.json',
+  'references/assets.md',
   'references/change-tracking.md',
   'references/inspectable-properties.md',
   'references/integration.md',
+  'references/postfx.md',
+  'references/textures.md',
   'references/troubleshooting.md',
+  'references/ui.md',
   'scripts/build.cjs',
   'scripts/three-scene-debugger.js',
   'tests/README.md',
@@ -34,6 +38,34 @@ const MANIFEST = [
   'tests/results.log',
   'tests/runtime.cjs'
 ];
+
+// assets/ 是可选的素材包（HDR 天空盒 + PBR 贴图，约 22 MB）。它整目录随包分发，
+// 但不硬编码在 MANIFEST 里：没装素材的副本照样能安装，只是少了素材网格。
+function discoverAssets() {
+  const root = path.join(PACKAGE_ROOT, 'assets');
+  let stat;
+  try {
+    stat = fs.lstatSync(root);
+  } catch (error) {
+    return [];
+  }
+  if (!stat.isDirectory() || stat.isSymbolicLink()) return [];
+  const out = [];
+  const walk = (abs, rel) => {
+    for (const entry of fs.readdirSync(abs, { withFileTypes: true })) {
+      const childAbs = path.join(abs, entry.name);
+      const childRel = rel ? rel + '/' + entry.name : entry.name;
+      if (entry.isSymbolicLink()) continue;
+      if (entry.isDirectory()) walk(childAbs, childRel);
+      else if (entry.isFile()) out.push('assets/' + childRel);
+    }
+  };
+  walk(root, '');
+  return out.sort();
+}
+
+for (const rel of discoverAssets()) MANIFEST.push(rel);
+
 
 const NEUTRAL = {
   id: 'agents',

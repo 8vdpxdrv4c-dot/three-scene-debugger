@@ -38,3 +38,27 @@ PASS UMD global cleanup refcount and foreign global protection
 {"passed":20,"node":"v22.23.4","three":"187","jsdom":"31.0.0","webgl":"NOT TESTED","visual":"NOT TESTED"}
 {"passed":7,"browser":"156.0.8078.47","playwright":"1.65.0","checks":["real shadow DOM controls","numeric change","JSON export","name search","code output","UMD+ESM coexistence","destroy listeners/DOM/global"],"webgl":"NOT TESTED","visual":"NOT INSPECTED"}
 {"passed":11,"node":"v22.23.4","package":"0.2.0","webgl":"NOT TESTED","visual":"NOT TESTED","installer":"file copy only"}
+
+# 0.8.0 re-run, 2026-11-10, Node v22.22.2 (Windows). Suite refreshed to current architecture:
+# traversal spy now asserts zero scene.traverse + build only on init/open/refresh; panel starts
+# closed so the browser test clicks the launcher first; tree leaves are buttons, not summaries.
+# Runtime deps borrowed via junctions (three+jsdom from an existing project, playwright likewise);
+# renderer is a stub with a render() method, so no WebGLRenderer was created.
+# Additional Playwright/SwiftShader verification for 0.8.0 (separate harness, real WebGL):
+# core 60/60, export 17/17, scenes 56/56, rounds50 50/50, ui, ui-improve 10/10,
+# material-switch 23/23, texture-library 41/41, demo smoke, tabs; console clean.
+{"passed":20,"node":"v22.22.2","three":"173","jsdom":"16.7.0","webgl":"NOT TESTED","visual":"NOT TESTED"}
+{"passed":7,"browser":"156.0.8078.80","playwright":"1.61.1","checks":["real shadow DOM controls","numeric change","JSON export","name search","code output","UMD+ESM coexistence","destroy listeners/DOM/global"],"webgl":"NOT TESTED","visual":"NOT INSPECTED"}
+{"passed":9,"skipped":2,"node":"v22.22.2","package":"0.8.0","webgl":"NOT TESTED","visual":"NOT TESTED","installer":"file copy only"}
+
+# 0.8.1, 2026-11-10, Node v22.22.2 (Windows). UI change only:
+# bottom sticky big button replaces the in-log copy-all-Markdown button; exports exportPrompt()
+# (instruction preamble + full change Markdown) for pasting straight to an agent.
+# Verified via Playwright/SwiftShader harness: copy-prompt suite 12/12 (sticky bottom, disabled
+# state, count label, clipboard content, dark theme), core/ui/merge/export regressions green.
+
+# 0.8.2, 2026-11-10. Clipboard reliability fix: three-tier copy chain (sync execCommand -> async
+# Clipboard API -> manual fallback with auto-selected output box), bottom button flashes green/red.
+# User-visible symptom was silent copy failure inside embedded preview iframes (no clipboard-write
+# permission) and insecure http origins. copy-prompt suite now 19/19 incl. forced-failure and
+# legacy-only scenarios; core/ui/merge/export/texture-library regressions green.

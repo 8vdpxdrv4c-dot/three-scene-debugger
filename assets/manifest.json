@@ -1,0 +1,139 @@
+{
+  "hdr": [
+    {
+      "id": "brown_photostudio_02",
+      "label": "摄影棚",
+      "file": "hdr/brown_photostudio_02.hdr",
+      "format": "hdr",
+      "thumb": "thumbs/hdr_brown_photostudio_02.jpg",
+      "credit": "Poly Haven · CC0"
+    },
+    {
+      "id": "venice_sunset",
+      "label": "威尼斯日落",
+      "file": "hdr/venice_sunset.hdr",
+      "format": "hdr",
+      "thumb": "thumbs/hdr_venice_sunset.jpg",
+      "credit": "Poly Haven · CC0"
+    },
+    {
+      "id": "pedestrian_overpass",
+      "label": "天桥黄昏",
+      "file": "hdr/pedestrian_overpass.hdr",
+      "format": "hdr",
+      "thumb": "thumbs/hdr_pedestrian_overpass.jpg",
+      "credit": "Poly Haven · CC0"
+    },
+    {
+      "id": "quarry_01",
+      "label": "采石场",
+      "file": "hdr/quarry_01.hdr",
+      "format": "hdr",
+      "thumb": "thumbs/hdr_quarry_01.jpg",
+      "credit": "Poly Haven · CC0"
+    },
+    {
+      "id": "park",
+      "label": "公园草坪（LDR）",
+      "file": "hdr/park.jpg",
+      "format": "ldr",
+      "thumb": "thumbs/hdr_park.jpg",
+      "credit": "three.js examples · 公共素材"
+    }
+  ],
+  "textures": [
+    {
+      "id": "red_brick_03",
+      "label": "红砖墙",
+      "files": {
+        "diff": "textures/red_brick_03/red_brick_03_diff_1k.jpg",
+        "nor": "textures/red_brick_03/red_brick_03_nor_1k.jpg",
+        "rough": "textures/red_brick_03/red_brick_03_rough_1k.jpg",
+        "arm": "textures/red_brick_03/red_brick_03_arm_1k.jpg"
+      },
+      "thumb": "thumbs/tex_red_brick_03.jpg",
+      "credit": "Poly Haven · CC0"
+    },
+    {
+      "id": "wooden_floor_02",
+      "label": "木地板",
+      "files": {
+        "diff": "textures/wooden_floor_02/wooden_floor_02_diff_1k.jpg",
+        "nor": "textures/wooden_floor_02/wooden_floor_02_nor_1k.jpg",
+        "rough": "textures/wooden_floor_02/wooden_floor_02_rough_1k.jpg"
+      },
+      "thumb": "thumbs/tex_wooden_floor_02.jpg",
+      "credit": "Poly Haven · CC0"
+    },
+    {
+      "id": "marble_01",
+      "label": "大理石",
+      "files": {
+        "diff": "textures/marble_01/marble_01_diff_1k.jpg",
+        "nor": "textures/marble_01/marble_01_nor_1k.jpg",
+        "rough": "textures/marble_01/marble_01_rough_1k.jpg"
+      },
+      "thumb": "thumbs/tex_marble_01.jpg",
+      "credit": "Poly Haven · CC0"
+    },
+    {
+      "id": "metal_plate",
+      "label": "拉丝金属",
+      "files": {
+        "diff": "textures/metal_plate/metal_plate_diff_1k.jpg",
+        "nor": "textures/metal_plate/metal_plate_nor_1k.jpg",
+        "rough": "textures/metal_plate/metal_plate_rough_1k.jpg",
+        "arm": "textures/metal_plate/metal_plate_arm_1k.jpg"
+      },
+      "thumb": "thumbs/tex_metal_plate.jpg",
+      "credit": "Poly Haven · CC0"
+    },
+    {
+      "id": "brushed_concrete",
+      "label": "混凝土",
+      "files": {
+        "diff": "textures/brushed_concrete/brushed_concrete_diff_1k.jpg",
+        "nor": "textures/brushed_concrete/brushed_concrete_nor_1k.jpg",
+        "rough": "textures/brushed_concrete/brushed_concrete_rough_1k.jpg",
+        "arm": "textures/brushed_concrete/brushed_concrete_arm_1k.jpg"
+      },
+      "thumb": "thumbs/tex_brushed_concrete.jpg",
+      "credit": "Poly Haven · CC0"
+    },
+    {
+      "id": "cobblestone_01",
+      "label": "石板路",
+      "files": {
+        "diff": "textures/cobblestone_01/cobblestone_01_diff_1k.jpg",
+        "nor": "textures/cobblestone_01/cobblestone_01_nor_1k.jpg",
+        "rough": "textures/cobblestone_01/cobblestone_01_rough_1k.jpg",
+        "arm": "textures/cobblestone_01/cobblestone_01_arm_1k.jpg"
+      },
+      "thumb": "thumbs/tex_cobblestone_01.jpg",
+      "credit": "Poly Haven · CC0"
+    },
+    {
+      "id": "fabric_pattern_07",
+      "label": "织物",
+      "files": {
+        "diff": "textures/fabric_pattern_07/fabric_pattern_07_diff_1k.jpg",
+        "nor": "textures/fabric_pattern_07/fabric_pattern_07_nor_1k.jpg",
+        "rough": "textures/fabric_pattern_07/fabric_pattern_07_rough_1k.jpg"
+      },
+      "thumb": "thumbs/tex_fabric_pattern_07.jpg",
+      "credit": "Poly Haven · CC0"
+    },
+    {
+      "id": "aerial_grass_rock",
+      "label": "草地岩石",
+      "files": {
+        "diff": "textures/aerial_grass_rock/aerial_grass_rock_diff_1k.jpg",
+        "nor": "textures/aerial_grass_rock/aerial_grass_rock_nor_1k.jpg",
+        "rough": "textures/aerial_grass_rock/aerial_grass_rock_rough_1k.jpg"
+      },
+      "thumb": "thumbs/tex_aerial_grass_rock.jpg",
+      "credit": "Poly Haven · CC0"
+    }
+  ],
+  "license": "素材来自 Poly Haven（CC0）与 three.js examples，详见 assets/CREDITS.md"
+}

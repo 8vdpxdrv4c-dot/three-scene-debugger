@@ -22,7 +22,7 @@
 3. 先由应用加载纹理，`debug.registerResource(texture)`，需要纹理独立参数控件时再按刷新；引用不存在会在 loadSnapshot 报 Unresolved resource，不会自动生成空图。
 4. repeat 通常需要 wrapS/T=THREE.RepeatWrapping；rotation 是弧度，center 影响旋转。matrixAutoUpdate=false 时业务要维护 texture.matrix。
 5. 检查 CORS、image decode、colorSpace、UV/channel、法线图方向、采样器 filter 合法性与版本约束；不同于简单 needsUpdate 的格式/维度变化必须由资源所有者重建。
-6. HDR environment/PMREM 由业务加载器维护，不把普通色图一键伪装 HDR；不在调试器里加载第二份 Three。
+6. HDR environment/PMREM：0.5.0 起调试器自带素材库（`assets:` 参数，手写 Radiance RGBE 解码 + `PMREMGenerator`），程序化预设仍是零外部文件的兜底；业务自己加载的 HDR 仍由业务维护，不走这条链路，也不把普通色图一键伪装 HDR；不在调试器里加载第二份 Three。
 
 ## 阴影不生效 / mapSize 修改后不变
 
@@ -64,6 +64,26 @@ renderer.shadowMap.needsUpdate = true;
 4. renderer.info 默认每次 render 重置，多 Pass 场景当前 calls/triangles 未必是完整帧总和；由业务配置 info.autoReset，调试器不偷偷改。
 5. 显存值仅缓存范围/CPU 数据基础层估算，不包含完整 GPU 资源、mips、compression、driver、render targets；不要拿它做精确 GPU profiling。
 
+## 后期处理：黑屏 / 画面发白 / 没有泛光
+
+1. **整屏黑**：先看 `renderer.getRenderTarget()`。调试器检测到宿主正渲染到自己的 RT 时会直接转调原函数（否则会把中间结果画到屏幕），如果宿主那条路径本身没画东西，你看到的就是宿主的画面，不是调试器的锅。
+2. **只有一层纯色**：多半是合成通道的 `#include <colorspace_fragment>` 被改动或 `toneMapped` 被设成 false，导致线性值直接进屏幕。合成通道必须 `toneMapped: true`，阈值/模糊通道必须 `false`。
+3. **画面发白或发灰**：双重色调映射。宿主自己接了 `EffectComposer` 并在末尾又做了一次 toneMapping/encoding 时，把调试器的 `enabled` 关掉，或删掉其中一层。
+4. **没有泛光**：`bloom.threshold` 是**线性 HDR 亮度**，不是 sRGB 0–1。场景里没有超过阈值的像素就不会有泛光；先把阈值压到 0.2–0.4 验证链路，再按需要调回去。
+5. **泛光过糊**：`bloom.radius` 控制参与合成的模糊层跨度，配合 `bloom.strength` 一起降；只降 strength 会得到「很淡但很糊」的结果。
+6. **WebGL1 边缘很硬**：4x MSAA 走 `samples: 4`，只在 WebGL2 可用。没有 MSAA 时只能靠提高 `pixelRatioCap` 或后处理锐化补偿。
+7. **HDR 泛光发平**：`HalfFloatType` 需要 `EXT_color_buffer_float` / `EXT_color_buffer_half_float`。都拿不到时 RT 退回 8 位，超过 1.0 的亮度在 RT 里已被截断，泛光自然没有层次。
+8. **draw call 突然变成 1**：你读的是 `renderer.info.render`。开启后期后它只统计最后那趟合成，用 `getStats()` 取内部保存的场景那一趟。
+9. 不要改回 `copyFramebufferToTexture` 抓帧的方案。实测 r160 + WebGL2 + SwiftShader 下，该调用在真实渲染回调内持续报 `GL_INVALID_VALUE: glCopyTexSubImage2D: Offset overflows texture dimensions`，同一调用在渲染回调外却返回 0——不稳定且无法可靠规避。
+
+## 点选不到 / 点到光源而不是物体
+
+1. **不可见对象不参与拾取**。`Raycaster` 本身不检查 `visible`，调试器在遍历时手动跳过 `visible === false` 的子树。自己写拾取逻辑时要补这一步，否则会点到看不见的东西。
+2. **真实几何优先于 Helper**。光源/阴影 helper 是半透明代理 Mesh，经常正好挡在几何体前面（半球光的大球心在原点，会吞掉地板中央的每一次点击）。调试器做两趟：先在真实几何里取最近命中，整条射线都没打到实物时才允许选中代理。
+3. `Light` 被选中时高亮框会隐藏（灯的包围盒没有意义），这是预期；手感上「点了没框」通常说明点到的是灯，不是网格。
+4. 点选只在面板打开时生效；关闭面板会清空选中。坐标要落在 canvas 上——面板固定占住屏幕右侧一条，压住的地方点不到场景。
+5. 屏幕半径只有几个像素的目标（远处行星、细线）建议先用场景树选中，别指望用鼠标点：坐标取整就能让射线擦过去。
+
 ## 撤销冲突 / 快照恢复失败 / 代码不能直接运行
 
 1. 先撤销同路径/父子路径后续记录；如果外部业务值已经变化，冲突报错是在保护新值，不要绕过检测覆盖。
@@ -77,7 +97,7 @@ renderer.shadowMap.needsUpdate = true;
 
 1. 确认调用当前实例 destroy；多实例各清自身面板/RAF/监听；保留其他实例不是泄漏。
 2. 保存旧输入 DOM 引用后 dispatch change 应不再修改场景；检查 DOM host 数量、RAF 队列、对象引用字段置 null。
-3. 应用自己的 `debug.tick` 回调仍在循环中会抛 Debugger destroyed；卸载时把应用持有的 debug 设 undefined，循环用 `debug?.tick(now)`。调试器不可能自动删除业务闭包里的引用。
+3. 应用自己的 `debug.tick` 回调仍在循环中：0.5.0 起 `tick()` 在销毁后**静默返回**，不再抛 `Debugger destroyed`（宿主循环写 `dbg.tick(now)` 时，抛错会中断整帧、连业务相机动画一起挂掉）。但把应用持有的引用置空仍是好习惯：`debug = undefined; ... debug?.tick(now)`，也让 GC 早点收回闭包。
 4. 默认没有 monkey patch。若第三方自行 patch render/prototype，按其所有权保存精确原引用再还原；不能把新 wrapper 当原引用去“还原”。
 5. 最后一个 UMD 实例只在 namespace 仍是本库引用时删除它；别人的全局值不能删除；ESM 不设全局。不创建 window.debug 等实例变量。
 6. Storage 为支持二次 destroy(clearStorage) 有意保留；只清此前缀，clearStorage 会影响同 origin 其他本库实例快照。用户编辑后的对象状态不自动恢复、资源不 dispose，不是泄漏证明。

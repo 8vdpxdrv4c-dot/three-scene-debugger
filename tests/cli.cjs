@@ -12,6 +12,35 @@ const { MANIFEST, SKILL_NAME, AGENTS, main, resolvePlans } = require(cli);
 const pkg = JSON.parse(fs.readFileSync(path.join(repo, 'package.json'), 'utf8'));
 const cleanup = [];
 let passed = 0;
+let skipped = 0;
+
+// 创建符号链接在 Windows 上需要开发者模式或管理员权限，普通账号是 EPERM。
+// 这条能力探测决定「符号链接防护」那一组用例是跑还是跳过——跳过要说出来，不能假装通过。
+function canSymlink() {
+  const target = fs.mkdtempSync(path.join(os.tmpdir(), 'tsd-sl-a-'));
+  const holder = fs.mkdtempSync(path.join(os.tmpdir(), 'tsd-sl-b-'));
+  cleanup.push(target, holder);
+  const link = path.join(holder, 'link');
+  try {
+    fs.symlinkSync(target, link);
+    fs.unlinkSync(link);
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+const SYMLINK_OK = canSymlink();
+
+// 这台机器上 npm / tar 不一定在 PATH 里，缺失时打包用例直接跳过而不是报假失败。
+function commandWorks(cmd, args) {
+  try {
+    const result = spawnSync(cmd, args || ['--version'], { encoding: 'utf8', maxBuffer: 4 * 1024 * 1024 });
+    return result.status === 0;
+  } catch (error) {
+    return false;
+  }
+}
+const NPM_OK = commandWorks('npm', ['--version']) && commandWorks('tar', ['--version']);
 
 function reserved(dir) {
   cleanup.push(dir);
@@ -82,7 +111,9 @@ function assertSkillTree(dest) {
   assert.ok(!fs.existsSync(path.join(dest, 'node_modules', 'three')));
   for (const file of found) assert.ok(!file.split('/').includes('..'));
   const core = fs.readFileSync(path.join(dest, 'scripts', 'three-scene-debugger.js'));
-  assert.ok(core.length < 120000);
+  // 0.5.0 加了后期链路与素材库，核心单文件已过 100 KB。上限留出余量，
+  // 只是防止「误把打包产物或第二份 Three 塞进核心」这种体积异常。
+  assert.ok(core.length < 220000, 'core source looks unexpectedly large: ' + core.length);
   assert.equal(sha(path.join(dest, 'scripts', 'three-scene-debugger.js')), sha(path.join(repo, 'scripts', 'three-scene-debugger.js')));
   assert.equal(sha(path.join(dest, 'dist', 'three-scene-debugger.mjs')), sha(path.join(repo, 'dist', 'three-scene-debugger.mjs')));
 }
@@ -107,7 +138,7 @@ try {
     assert.equal(pkg.bin[SKILL_NAME], './bin/three-scene-debugger.js');
     assert.ok(pkg.engines && pkg.engines.node);
     assert.match(pkg.engines.node, /18/);
-    for (const entry of ['bin', 'dist', 'scripts', 'references', 'tests', 'SKILL.md']) {
+    for (const entry of ['bin', 'dist', 'scripts', 'references', 'tests', 'assets', 'SKILL.md']) {
       assert.ok(pkg.files.includes(entry), entry);
     }
     assert.equal(pkg.scripts.test, 'node tests/cli.cjs');
@@ -120,6 +151,8 @@ try {
       'dist/three-scene-debugger.js', 'dist/three-scene-debugger.mjs',
       'references/integration.md', 'references/inspectable-properties.md',
       'references/change-tracking.md', 'references/troubleshooting.md',
+      'references/ui.md',
+      'references/postfx.md', 'references/assets.md',
       'tests/runtime.cjs', 'tests/browser.cjs', 'tests/README.md'
     ];
     for (const rel of required) assert.ok(MANIFEST.includes(rel), rel);
@@ -245,8 +278,14 @@ try {
     } finally {
       process.exitCode = savedExit;
     }
-    expectFail(run(['install', '--target', path.join('/etc', SKILL_NAME + '-cli-test')], cwd, home), /system directory/);
-    assert.equal(fs.existsSync(path.join('/etc', SKILL_NAME + '-cli-test')), false);
+    // 系统目录保护是平台相关的：POSIX 上 /etc、/usr 等被拦，Windows 上拦 WINDIR 与
+    // Program Files。这里必须按平台取路径，否则 Windows 会把 '/etc/x' 解析成 C:\etc\x，
+    // 而 C:\etc 不在 Windows 的保护清单里 —— 测试会真的把技能装进去。
+    const sysDir = process.platform === 'win32'
+      ? path.join(process.env.WINDIR || 'C:\\Windows', SKILL_NAME + '-cli-test')
+      : path.join('/etc', SKILL_NAME + '-cli-test');
+    expectFail(run(['install', '--target', sysDir], cwd, home), /system directory/);
+    assert.equal(fs.existsSync(sysDir), false);
   });
 
   test('an existing skill refuses drift until --force, which keeps unrelated files', () => {
@@ -278,7 +317,11 @@ try {
     assert.doesNotMatch(fs.readFileSync(path.join(partial, 'SKILL.md'), 'utf8'), /^partial$/m);
   });
 
-  test('symlink destinations, parents, and owned files are not followed or replaced', () => {
+  if (!SYMLINK_OK) {
+    skipped += 1;
+    console.log('SKIP symlink destinations, parents, and owned files are not followed or replaced',
+      '- current environment cannot create symlinks (Windows needs Developer Mode or elevation)');
+  } else test('symlink destinations, parents, and owned files are not followed or replaced', () => {
     const cwd = tempDir('tsd-link-cwd-');
     const outside = tempDir('tsd-link-outside-');
     fs.writeFileSync(path.join(outside, 'secret.txt'), 'do-not-touch');
@@ -401,7 +444,11 @@ try {
     assert.equal(fs.readFileSync(path.join(blocked, '.claude', 'skills', SKILL_NAME, 'keep.txt'), 'utf8'), 'keep');
   });
 
-  test('npm pack tarball installs through real npx and stays idempotent', () => {
+  if (!NPM_OK) {
+    skipped += 1;
+    console.log('SKIP npm pack tarball installs through real npx and stays idempotent',
+      '- npm or tar is not available on PATH');
+  } else test('npm pack tarball installs through real npx and stays idempotent', () => {
     const packDir = tempDir('tsd-pack-');
     const cacheDir = tempDir('tsd-npm-cache-');
     const packed = spawnSync('npm', ['pack', '--json', '--pack-destination', packDir], {
@@ -481,6 +528,7 @@ try {
 
   console.log(JSON.stringify({
     passed: passed,
+    skipped: skipped,
     node: process.version,
     package: pkg.version,
     webgl: 'NOT TESTED',

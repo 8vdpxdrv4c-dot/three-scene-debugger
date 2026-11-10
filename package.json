@@ -1,6 +1,6 @@
 {
   "name": "three-scene-debugger",
-  "version": "0.2.0",
+  "version": "0.8.2",
   "description": "Development-only Three.js scene inspector and Agent Skill. Distributed from GitHub; not published to the npm registry.",
   "license": "MIT",
   "repository": {
@@ -23,14 +23,15 @@
     "three-scene-debugger": "./bin/three-scene-debugger.js"
   },
   "files": [
+    "LICENSE",
+    "README.md",
+    "SKILL.md",
+    "assets",
     "bin",
     "dist",
-    "scripts",
     "references",
-    "tests",
-    "SKILL.md",
-    "LICENSE",
-    "README.md"
+    "scripts",
+    "tests"
   ],
   "engines": {
     "node": ">=18"
