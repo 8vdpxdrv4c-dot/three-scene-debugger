@@ -57,6 +57,9 @@ function discoverAssets() {
       const childAbs = path.join(abs, entry.name);
       const childRel = rel ? rel + '/' + entry.name : entry.name;
       if (entry.isSymbolicLink()) continue;
+      // A leftover .tsd-<pid>-<hex> temp file from an interrupted install is
+      // not an asset. Shipping it in MANIFEST would copy it to every target.
+      if (entry.name.startsWith('.tsd-')) continue;
       if (entry.isDirectory()) walk(childAbs, childRel);
       else if (entry.isFile()) out.push('assets/' + childRel);
     }
@@ -468,9 +471,12 @@ function writeOwnedFile(destRoot, source) {
       throw refuse('Temporary copy is not a regular file');
     }
     commitTemp(tmp, destFile);
-  } catch (error) {
-    try { fs.unlinkSync(tmp); } catch (cleanupError) { if (cleanupError.code !== 'ENOENT') throw cleanupError; }
-    throw error;
+  } finally {
+    // commitTemp normally consumes tmp (hard link + unlink, or rename).
+    // Clean up on every path, including errors, so a Windows lock or an
+    // interrupted install cannot leave a .tsd-* file inside a skill folder.
+    // Best effort only: the committed destination file is what matters.
+    try { fs.unlinkSync(tmp); } catch (cleanupError) { /* already moved or still locked */ }
   }
   return true;
 }

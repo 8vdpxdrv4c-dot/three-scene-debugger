@@ -156,6 +156,8 @@ try {
       'tests/runtime.cjs', 'tests/browser.cjs', 'tests/README.md'
     ];
     for (const rel of required) assert.ok(MANIFEST.includes(rel), rel);
+    // Leftover installer temp files must never be distributed as assets.
+    assert.equal(MANIFEST.some((rel) => path.basename(rel).startsWith('.tsd-')), false);
     const cliSource = fs.readFileSync(cli, 'utf8');
     assert.ok(cliSource.startsWith('#!/usr/bin/env node'));
     for (const banned of ["child_process", "require('three'", 'require("three"', 'node:http', 'node:https', 'node:net', 'eval(', 'Function(', 'readline', 'isTTY']) {
