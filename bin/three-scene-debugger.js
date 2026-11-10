@@ -18,6 +18,7 @@ const MANIFEST = [
   'LICENSE',
   'README.md',
   'SKILL.md',
+  'INSTALL.md',
   'bin/three-scene-debugger.js',
   'dist/three-scene-debugger.js',
   'dist/three-scene-debugger.mjs',
