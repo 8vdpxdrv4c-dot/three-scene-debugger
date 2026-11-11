@@ -1,4 +1,4 @@
-/* three-scene-debugger 0.8.3 | MIT | No imports, patches, render loop or resource disposal. */
+/* three-scene-debugger 0.8.3 | CC BY-NC 4.0 (attribution required, non-commercial) | https://github.com/8vdpxdrv4c-dot/three-scene-debugger */
 (function(root,factory){
   if(typeof module==='object'&&module.exports) module.exports=factory();
   else if(typeof define==='function'&&define.amd) define([],factory);

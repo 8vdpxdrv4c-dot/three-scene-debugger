@@ -1,21 +1,97 @@
-MIT License
+three-scene-debugger（3D 场景调试大师）
+Copyright (c) 2026 three-scene-debugger authors
+https://github.com/8vdpxdrv4c-dot/three-scene-debugger
 
-Copyright (c) 2026 three-scene-debugger contributors
+本作品采用「知识共享 署名-非商业性使用 4.0 国际」许可协议（CC BY-NC 4.0）授权。
+This work is licensed under the Creative Commons
+Attribution-NonCommercial 4.0 International Public License (CC BY-NC 4.0).
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+    许可全文 / Full legal code:
+    https://creativecommons.org/licenses/by-nc/4.0/legalcode
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+    人类可读摘要 / Human-readable summary:
+    https://creativecommons.org/licenses/by-nc/4.0/
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+    规范标识 / SPDX identifier: CC-BY-NC-4.0
+
+======================================================================
+一、中文要点（便于理解，不构成法律文本；以上方 legalcode 原文为准）
+======================================================================
+
+你可以自由地：
+
+  1. 共享 —— 以任何媒介或格式复制、发行本作品。
+  2. 改编 —— 修改、转换本作品，并基于本作品创作衍生作品。
+
+但必须遵守以下条件：
+
+  1. 署名（BY）—— 必须注明出处来源。
+     你需要保留作者署名、版权声明、许可声明与免责声明，提供本作品的
+     来源链接和许可链接，并标明你是否修改过、以及修改了什么。
+     不得以任何方式暗示作者为你或你的使用背书。
+
+  2. 非商业（NC）—— 不得将本作品用于商业目的。
+     即不得主要用于或指向商业利益、金钱报酬。判断标准见许可原文
+     Section 1(i) 对 "NonCommercial" 的定义。
+     本项目的授权方明确认为，下列情形属于商业用途，需另行取得授权：
+     把本作品或其衍生作品内置到对外销售的产品、SaaS / 付费服务、
+     客户交付项目、付费课程或付费内容中；以及在企业内部用于支撑
+     商业产品与生产系统的场景。拿不准时请先联系确认，不要默认可用。
+
+  3. 不得增加额外限制 —— 不得对本作品施加法律条款或技术措施，
+     从而限制他人依本许可享有的权利。
+
+  4. 无担保 —— 本作品按「现状」提供，不附带任何明示或默示担保；
+     作者不对使用本作品产生的任何损失承担责任。见许可原文 Section 5。
+
+======================================================================
+二、署名格式（满足「必须注明出处来源」的最低要求）
+======================================================================
+
+在使用了本作品的项目的以下任一位置保留署名：
+README / LICENSE / 关于页面 / 产品文档 / 源码头部注释 / 演示页页脚。
+
+推荐直接复制这一行（把 <修改说明> 按实际情况填写）：
+
+  three-scene-debugger (3D 场景调试大师) © 2026 three-scene-debugger authors
+  来源: https://github.com/8vdpxdrv4c-dot/three-scene-debugger
+  许可: CC BY-NC 4.0 — https://creativecommons.org/licenses/by-nc/4.0/
+  修改: <未修改 / 简述你的改动>
+
+只复制了其中部分文件（例如只用了 dist/ 里的单文件）时，同样需要署名，
+并注明是从本仓库取得的。
+
+======================================================================
+三、商业授权
+======================================================================
+
+需要商业使用时，不能直接套用本许可，必须事先取得授权方的书面许可。
+请在仓库 Issues 中说明用途、产品形态与分发方式：
+https://github.com/8vdpxdrv4c-dot/three-scene-debugger/issues
+
+在收到明确的商业授权之前，请勿将本作品用于上述商业场景。
+
+======================================================================
+四、例外与第三方素材
+======================================================================
+
+1. 本仓库 assets/ 目录下的 HDR 环境、PBR 贴图等素材为 CC0（公共领域），
+   来源见 assets/CREDITS.md。这些素材不受本许可约束，可自由使用；
+   但它们各自的来源声明应一并保留。
+2. 本作品运行时复用宿主应用自带的 three.js，three.js 的许可（MIT）
+   由宿主应用自行遵守，与本许可无关。
+3. 本许可不授予商标权、专利权，也不授予对作者名称、标识的商业性
+   使用许可。
+
+======================================================================
+五、违约与终止
+======================================================================
+
+违反本许可（例如未署名、用于商业目的）时，依本许可获得的授权自动终止。
+在发现违约后 30 日内完成纠正的，授权自动恢复；否则需取得授权方的
+明确恢复许可。详见许可原文 Section 6。
+
+======================================================================
+
+完整条款以 Creative Commons 官方发布的 CC BY-NC 4.0 legalcode 为准。
+如中文要点与英文原文存在歧义，以英文原文为准。
