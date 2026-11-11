@@ -1,5 +1,20 @@
 # 验证记录与复现
 
+## 0.8.4 真实宿主复测（2026-11-10，Windows）
+
+在独立测试台 `E:\3D项目制作\three-skill-test` 建了 3 个架构不同的 Three.js 单页宿主（ESM+importmap / UMD 全局 / 多文件模块+动画+材质数组），另加一个 Three r168 旧版宿主。Chrome headless + SwiftShader，CDP 驱动：
+
+- 运行时 **63/63 通过**：A 15、B 15、C 18、素材/HDR/窄屏 7、r168 7；页面 JS 异常 0。
+- 触发覆盖 **8/14 → 14/14**：补了性能、点选拖拽/场景编辑、单页 demo 三类触发词。
+
+发现并修复：
+
+1. **r169+ TransformControls 崩溃**：`new TransformControls()` 返回的是 `Controls` 而不是 `Object3D`，`g.userData` 为 undefined，`selectObject()` 直接抛 `TypeError`。`SelectionLayer.ensureGizmo()` 改为 `typeof g.getHelper === 'function' ? g.getHelper() : g`；`visible` 与 `scene.add` 用 helper，`attach/setMode/detach` 仍用 controls；`destroy()` 移除 helper 并 dispose controls。r168 旧路径已回归。
+2. **素材库异步竞态**：manifest 尚未加载完时 `setEnvironment('hdr:…')` 抛 `Unknown environment preset`，`applyAssetTexture()` 抛 `未知素材贴图`。`AssetLibrary.texture()/env()` 先 `await this.ready`；`SceneDebugger.setEnvironment()` 对 `hdr:` 前缀等待 `assets.ready` 后重试。
+3. **description 触发词缺失**：FPS/draw call/三角形/显存、点选与拖拽手柄/加光源/克隆/删除/聚焦/截图、单页 HTML/静态 demo 宿主。
+
+复现见测试台 `README.md`。仍未创建真实 `WebGLRenderer` 之外的 GPU 视觉断言；SwiftShader 只能证明链路与 DOM 行为。
+
 ## 本次仓库复核（2026-11-09）
 
 - Linux，Node.js **v22.23.4**，npm **10.9.9**。

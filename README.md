@@ -4,7 +4,7 @@ Development-only Three.js scene inspector，同时是仓库根目录可发现的
 
 **安装说明：[INSTALL.md](INSTALL.md)** —— Agent Skill 安装、运行库接入、验证、升级与常见问题。
 
-当前工作副本为 **0.8.3**：0.5.0 补上了**后期处理**与**素材库**两块能力，0.6.0 把面板本身按「能长时间用」重做了一遍，0.7.0 增加**材质切换**，0.8.0 增加**自制贴图库**，0.8.1 增加底部固定的「复制修改提示词」大按钮，0.8.2 修复剪贴板在内嵌 iframe / 非安全上下文中的复制可靠性，0.8.3 在命令区新增「AI 提示词」按钮（`aiPrompt()`）：一键生成当前场景与选中对象状态的完整提示词并复制。
+当前工作副本为 **0.10.1**：0.5.0 补上了**后期处理**与**素材库**两块能力，0.6.0 把面板本身按「能长时间用」重做了一遍，0.7.0 增加**材质切换**，0.8.0 增加**自制贴图库**，0.8.1 增加底部固定的「复制修改提示词」大按钮，0.8.2 修复剪贴板在内嵌 iframe / 非安全上下文中的复制可靠性，0.8.3 在命令区新增「AI 提示词」按钮（`aiPrompt()`）：一键生成当前场景与选中对象状态的完整提示词并复制。0.8.4 修复 Three r169+ 的 `TransformControls`（`Controls` + `getHelper()`）兼容与素材库异步加载竞态，并补齐性能、点选拖拽/场景编辑、单页 demo 三类触发词。0.9.0 让面板后期真正接管宿主 `EffectComposer`（有 Bloom 就接管，没有就插 pass）。0.9.1 场景树点一下即选中并让相机缓动聚焦，选中行高亮；目标小于相机 near 时可临时压低 near（`autoNear`）。0.9.2 修掉「拖『镜头与风格』滑块画面没反应」：`attach` 下总开关默认打开、关闭时连强度一起交还宿主，且拖动任意后期参数会自动开启。0.10.0 新增**虚化通道（BokehPass 景深）**：默认关闭、独立于后期总开关，开启后按当前机位自动算 `focus/aperture`，关闭时整条 pass 从 composer 摘除；导出提示词会带上安装方式、插入位置与已配置参数。0.10.1 修掉「虚化第二次开启没效果」：关闭时会把 pass 的 `enabled` 置 false，`attachBokehPass()` 重新插入时必须显式打开，否则实例在链上却被 composer 跳过；同时 `bokehInfo()` 新增 `active`，面板在「勾着但没生效」时直接提示。0.9.0 让后期页签**接管宿主 `EffectComposer`**：有 Bloom pass 就直连它的参数与开关，没有就插一条自己的 pass；导出提示词会带上「插到第几位、编码由谁收尾」。
 
 - 面板左边缘是一条**宽度拖拽条**（双击复位），宽度存 localStorage；标题栏下方有「展开全部 / 收起全部 / 复位布局」快捷条；分组改成了带箭头的卡片。
 - 所有滑块换成自绘轨道（填充进度 + 圆形拇指，拖动时放大发光），并把数值做成**可键入的数字框**：滑块负责探索，数字框负责精确值。
@@ -13,7 +13,8 @@ Development-only Three.js scene inspector，同时是仓库根目录可发现的
 - **自制贴图库**：12 套材质（橡木 / 红砖 / 清水混凝土 / 大理石 / 拉丝金属 / 六角砖 / 石板路 / 皮革 / 亚麻 / 沙地 / 锈蚀 / 水磨石）全部在浏览器里用周期噪声算出来，不读任何图片、不发网络请求。每套同时产出**基础色 + 法线 + 粗糙度**三张 `DataTexture`，方形四边无缝；面板抽屉按通道分组预览（基础色 / 法线 / 粗糙度 / 整套），可调平铺与尺寸，点图即写入材质槽位，一条改动、可撤销、导出成 `tsd.applyTexturePreset(...)`。
 - 选中物体后可以在材质页把材质**换成另一种类型**（Standard / Physical / Phong / Lambert / Basic / Toon / Normal / Matcap / Depth / Shadow，材质数组按槽位）：新建实例、搬运颜色与贴图等参数、可选同步共用该材质的其他对象；一次切换记一条改动，可撤销，导出成一行 `tsd.setMaterial(target, "MeshPhysicalMaterial")`。
 
-- 后期链路是自己实现的：场景先画到离屏 `WebGLRenderTarget`（HalfFloat 可选、4x MSAA），再阈值提取 → 4 级高斯模糊 → 合成（Bloom / 调色 / 暗角 / 色差 / 颗粒 / 锐化 / 描边 / 像素化），外加线框/法线/剪影调试视图。**不依赖 `EffectComposer`**，避免打包进第二份 Three；合成通道交给宿主 renderer 做色调映射与色彩空间编码，不自己造 ACES。关闭时直接转调原 `renderer.render`，零开销。
+- 虚化通道走官方 `BokehPass`（宿主注入构造函数，技能不 import addon）：有 composer 就插在编码 pass 之前，没有就走离屏链路；关闭时摘除 pass 并 dispose 中间目标，画面与没开过一致。
+- 后期链路有两条：场景有 `EffectComposer` 时**接管**——认出现成的 Bloom pass 就直连 `strength`/`radius`/`threshold` 与 `enabled`，没有就按需求插一条 `TsdPostFXPass`（Bloom / 调色 / 暗角 / 色差 / 颗粒 / 锐化 / 描边 / 像素化），插在编码 pass 之前、输出线性值；没有 composer 时走自研离屏链路（`WebGLRenderTarget` + 4 级高斯）。两条路都只用宿主注入的 `THREE`，不 import addon，避免打包进第二份 Three。另配线框/法线/剪影调试视图（仅在无 composer 的路径生效）。
 - 素材库随包分发 4 个 CC0 HDR 天空盒 + 8 套 PBR 贴图（`assets/`，约 22 MB，清单驱动、懒加载、可整目录摘掉）。HDR 解析是手写的 Radiance RGBE 解码，正确性用「解码字节数 == 文件字节数」硬校验。
 - 编辑器补齐加光源 / 克隆 / 删除 / 聚焦、网格与坐标轴、截图与统计；面板仍是左上角常驻红色入口按钮「3D场景调试大师」，标题栏可拖拽、双击复位，只有面板打开时才允许点选与拖拽。
 - 改动导出改成「一个对象一段可执行代码」：先 `const target = …`，再 `target.xxx = …`。后期/环境这类编辑器动作导出成 `tsd.setPostFX(...)` 这类调用。
@@ -47,7 +48,7 @@ npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debug
 npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger --list-agents
 ```
 
-`--agent` 可重复，或用逗号分隔。同一个目录只写一次。当前 `main` 已是 **0.8.3**：不带 `--agent` 默认写 `.agents/skills/three-scene-debugger`，Claude Code 需显式 `--agent claude-code`。面向使用者的完整安装说明见 [INSTALL.md](INSTALL.md)。
+`--agent` 可重复，或用逗号分隔。同一个目录只写一次。当前 `main` 已是 **0.8.4**：不带 `--agent` 默认写 `.agents/skills/three-scene-debugger`，Claude Code 需显式 `--agent claude-code`。面向使用者的完整安装说明见 [INSTALL.md](INSTALL.md)。
 
 | 选择 | 项目目录 | 全局目录（`--global`） | 官方文档 |
 |---|---|---|---|

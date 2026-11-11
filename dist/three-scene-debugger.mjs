@@ -1,6 +1,6 @@
 const globalRoot = null;
 'use strict';
-const VERSION='0.8.3', PREFIX='tsd:snapshot:';
+const VERSION='0.10.1', PREFIX='tsd:snapshot:';
 const PANEL_CSS = `:host{all:initial}
 *{box-sizing:border-box}
 :host,section{
@@ -93,6 +93,7 @@ summary::marker{color:var(--muted)}
 small{color:var(--muted)}
 .tsd-node{display:block;width:100%;text-align:left;background:transparent;border:0;border-radius:0;padding:3px 8px;margin:0;color:var(--fg);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:none}
 .tsd-node:hover{background:var(--field-hover);border-color:transparent}
+.tsd-node.on{background:var(--accent-soft);box-shadow:inset 2px 0 0 var(--accent)}
 .tsd-leaf{padding-left:22px}
 label output{width:46px;text-align:right;font:10.5px/1 ui-monospace,Menlo,monospace;color:var(--muted)}
 .tsd-slider{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:8px;row-gap:1px;margin:8px 0;padding:1px 0;font-size:11.5px;justify-content:initial}
@@ -165,6 +166,8 @@ button.tsd-aiprompt.tsd-copy-fail{background:linear-gradient(135deg,#c65b54 0%,#
 .tsd-mini{width:36px;height:36px;object-fit:cover;border-radius:6px;border:1px solid var(--field-line);flex:0 0 auto}
 .tsd-pf-group{margin:7px 0;padding:5px 8px 7px;border:1px solid var(--code-line);border-radius:9px;background:var(--code-bg)}
 .tsd-pf-group>strong{display:block;font-size:11px;font-weight:650;margin:1px 0 2px;color:var(--fg)}
+.tsd-pf-status{margin:5px 0 3px;padding:5px 8px;border-radius:8px;border:1px solid var(--code-line);background:var(--code-bg);color:var(--fg);font-size:10.5px;line-height:1.45}
+.tsd-pf-status.tsd-pf-warn{border-color:#7a5a2a;color:#f0c07a}
 .tsd-texbox{margin:4px 0 2px;padding:2px 8px 6px;border:1px solid var(--code-line);border-radius:9px;background:var(--code-bg)}
 .tsd-texbox h3{margin:8px 0 4px}
 .tsd-modes{display:flex;gap:4px;margin:0 0 6px;padding:3px;border:1px solid var(--code-line);border-radius:9px;background:var(--code-bg)}
@@ -640,11 +643,11 @@ class UILayer{
  }
 
  /* 滑块行骨架：第一行「标签 + 数值框」，第二行整宽滑轨，拖起来行程更长 */
- sliderRow(parent,label,value,min,max,step){
+ sliderRow(parent,label,value,min,max,step,digits){
   const row=this.el('label',parent);row.className='tsd-slider';
   this.el('span',row,label);
   const num=this.el('input',row);num.type='number';num.className='tsd-num';
-  num.min=min;num.max=max;num.step=step;num.value=this.fmt(value);
+  num.min=min;num.max=max;num.step=step;num.value=digits?this.fmtDigits(value,digits):this.fmt(value);
   num.setAttribute('aria-label',label);
   const input=this.el('input',row);input.type='range';input.min=min;input.max=max;input.step=step;
   input.value=Number(value);input.setAttribute('aria-label',label);
@@ -653,15 +656,16 @@ class UILayer{
  }
 
 
- slider(parent,label,value,min,max,step,onInput,onCommit){
-  const c=this.sliderRow(parent,label,value,min,max,step);
+ slider(parent,label,value,min,max,step,onInput,onCommit,digits){
+  const c=this.sliderRow(parent,label,value,min,max,step,digits);
   const input=c.input,num=c.num,lo=Number(min),hi=Number(max);
+  const show=v=>digits?this.fmtDigits(v,digits):this.fmt(v);
   const clamp=v=>Math.min(hi,Math.max(lo,v));
   this.on(input,'input',()=>{
-   const v=Number(input.value);num.value=this.fmt(v);this.paintRange(input,v,min,max);onInput(v);
+   const v=Number(input.value);num.value=show(v);this.paintRange(input,v,min,max);onInput(v);
   });
   this.on(input,'change',()=>{
-   const v=Number(input.value);num.value=this.fmt(v);this.paintRange(input,v,min,max);onCommit(v);
+   const v=Number(input.value);num.value=show(v);this.paintRange(input,v,min,max);onCommit(v);
   });
   /* 数值框可直接键入精确值：先夹到范围内，再按一次完整改动提交 */
   this.on(num,'change',()=>{
@@ -687,24 +691,25 @@ class UILayer{
   this.on(sel,'change',()=>fn(sel.value));
   return sel;
  }
- pfSlider(parent,label,path,min,max,step){
+ pfSlider(parent,label,path,min,max,step,digits){
   const value=this.d.getPostFX(path);
-  const c=this.sliderRow(parent,label,value,min,max,step);
+  const c=this.sliderRow(parent,label,value,min,max,step,digits);
   const input=c.input,num=c.num,lo=Number(min),hi=Number(max);
+  const show=v=>digits?this.fmtDigits(v,digits):this.fmt(v);
   const clamp=v=>Math.min(hi,Math.max(lo,v));
   let pre=null;
   const preview=v=>{if(!pre)pre={path:path,old:this.d.getPostFX(path)};this.d.previewPostFX(path,v);};
   const commit=v=>{this.d.setPostFX(path,v,pre&&pre.path===path?pre.old:undefined);pre=null;this.changes();};
   this.on(input,'input',()=>{
-   const v=Number(input.value);num.value=this.fmt(v);this.paintRange(input,v,min,max);preview(v);
+   const v=Number(input.value);num.value=show(v);this.paintRange(input,v,min,max);preview(v);
   });
   this.on(input,'change',()=>{
-   const v=Number(input.value);num.value=this.fmt(v);this.paintRange(input,v,min,max);commit(v);
+   const v=Number(input.value);num.value=show(v);this.paintRange(input,v,min,max);commit(v);
   });
   this.on(num,'change',()=>{
    let v=Number(num.value);
-   if(!Number.isFinite(v)){num.value=this.fmt(input.value);return;}
-   v=clamp(v);num.value=this.fmt(v);input.value=v;this.paintRange(input,v,min,max);
+   if(!Number.isFinite(v)){num.value=show(input.value);return;}
+   v=clamp(v);num.value=show(v);input.value=v;this.paintRange(input,v,min,max);
    preview(v);commit(v);
   });
   this.pfInputs.set(path,input);
@@ -717,9 +722,12 @@ class UILayer{
   const body=this.el('div',box);
   this.pfInputs=this.pfInputs||new Map();
 
+  this.pfStatusEl=this.el('div',body);this.pfStatusEl.className='tsd-pf-status';
   const master=this.checkbox(body,'启用后期处理',d.postfx.state.enabled,v=>{d.setPostFX('enabled',v);this.changes();});
   this.pfInputs.set('enabled',master);
-  this.el('small',body,'处理链路：离屏 HDR 渲染 → Bloom 阈值/多级模糊 → 合成（色调映射 + 调色）。关闭时不接管渲染，零开销。').className='tsd-hint';
+  this.pfMasterRow=master.parentElement||null;
+  this.pfMasterText=this.pfMasterRow?this.pfMasterRow.querySelector('span'):null;
+  this.pfHint=this.el('small',body);this.pfHint.className='tsd-hint';
 
   const group=title=>{const g=this.el('div',body);g.className='tsd-pf-group';this.el('strong',g,title);return g;};
 
@@ -729,6 +737,16 @@ class UILayer{
   this.pfSlider(bloom,'强度 strength','bloom.strength',0,3,0.01);
   this.pfSlider(bloom,'半径 radius','bloom.radius',0,1,0.01);
   this.pfSlider(bloom,'阈值 threshold','bloom.threshold',0,2,0.01);
+
+  const bokeh=group('虚化 · BokehPass 景深');
+  const bokehOn=this.checkbox(bokeh,'启用虚化（BokehPass，默认关）',d.postfx.state.bokeh.enabled,v=>d.setPostFX('bokeh.enabled',v));
+  this.pfInputs.set('bokeh.enabled',bokehOn);
+  this.pfSlider(bokeh,'焦点 focus（世界单位）','bokeh.focus',0,100,0.05);
+  this.pfSlider(bokeh,'光圈 aperture（越大景深越浅）','bokeh.aperture',0,0.05,0.0001,4);
+  this.pfSlider(bokeh,'最大模糊 maxblur','bokeh.maxblur',0,0.2,0.001);
+  const bokehBar=this.el('div',bokeh);
+  this.button('对焦到观察中心 / 选中物体',bokehBar,()=>{d.focusBokeh();});
+  this.bokehNote=this.el('small',bokeh);this.bokehNote.className='tsd-hint';
 
   const grade=group('色彩校正');
   this.pfSlider(grade,'亮度 brightness','grade.brightness',-1,1,0.01);
@@ -751,6 +769,7 @@ class UILayer{
   const bar=this.el('div',body);
   this.button('重置后期',bar,()=>d.resetPostFX());
   this.button('复制后期参数',bar,()=>this.copy(this.d.exportPostFXMarkdown()));
+  this.postfxStatus();
  }
  assetsUI(){
   const d=this.d;
@@ -807,17 +826,83 @@ class UILayer{
    this.envNote.textContent=lib.loading?'正在加载 '+lib.loading+' …':(a&&a.enabled?(a.status==='ready'?'HDR 环境 '+a.hdrItems.length+' 个，可直接切换。':(a.status==='error'?'素材库不可用：'+a.error:'素材库加载中…')):'未配置素材库（仅程序化环境）。');
   }
  }
+ /* 后期页签的实时状态：接管了哪个 pass、附加 pass 在哪一位、当前是「交还宿主」还是「tsd 接管」 */
+ postfxStatus(){
+  const el=this.pfStatusEl;
+  if(!el||!this.d||!this.d.postfx)return;
+  const fx=this.d.postfx,st=fx.state;
+  const name=p=>p&&p.constructor&&p.constructor.name||'?';
+  let text='',warn=false;
+  if(fx.composerMode==='off'){
+   text='未注册 EffectComposer：走内置离屏链路（离屏 HDR → Bloom → 合成），关闭时直通、零开销。';
+   if(this.pfMasterText)this.pfMasterText.textContent='启用后期处理';
+  }else if(fx.composerMode==='attach'){
+   const i=fx.composer?fx.composer.passes.indexOf(fx.hostBloom):-1;
+   text='已接管宿主后期：'+name(fx.hostBloom)+'（passes['+i+']）的 strength / radius / threshold 直连面板，'
+    +'Bloom 开关就是它的 enabled；调色 / 暗角 / 色差由附加 pass 处理（passes['+fx.composerIndex+']，'
+    +(st.enabled&&fx.extrasActive()?'已启用':'无调色改动，暂不参与渲染')+'）。';
+   if(this.pfMasterText)this.pfMasterText.textContent='接管后期处理（关闭即完全交还宿主）';
+  }else{
+   text='宿主 composer 里没有 Bloom：勾选「启用后期处理」会往 passes['+fx.composerIndex+'] 插入一条后期 pass（'
+    +(fx.composerLinear?'输出线性值，编码交给宿主收尾':'在链末自己完成色调映射与编码')+'）。'
+    +'若觉得光晕太弱，继续把阈值降到 0.15–0.3：它是线性 HDR 亮度，1.0 只让白点以上的像素发光。';
+   warn=!st.enabled;
+   if(this.pfMasterText)this.pfMasterText.textContent='启用后期处理（插入 composer pass）';
+  }
+  if(el.textContent!==text)el.textContent=text;
+  el.classList.toggle('tsd-pf-warn',warn);
+  if(this.pfHint){
+   const off=!st.enabled;
+   const hint=off
+    ?'当前未启用：参数不会作用到画面。直接拖任意滑块会自动打开（也可以勾上面的开关）。'
+    :(fx.composerMode==='off'
+     ?'处理链路：离屏 HDR 渲染 → Bloom 阈值/多级模糊 → 合成（色调映射 + 调色）。关闭时直通，零开销。'
+     :'画面由宿主 composer 输出：关闭「接管」会把宿主 Bloom 的开关与参数原样还回去，便于 A/B 对比。');
+   if(this.pfHint.textContent!==hint)this.pfHint.textContent=hint;
+  }
+  if(this.bokehStatus)this.bokehStatus();
+ }
+ /* 虚化分组的状态行：可用性 / 插在第几位 / 宿主是否已有景深 pass */
+ bokehStatus(){
+  const el=this.bokehNote,fx=this.d&&this.d.postfx;
+  if(!el||!fx)return;
+  const b=fx.state.bokeh,info=fx.bokehInfo();
+  if(!info.available){
+   el.textContent='未注入 BokehPass：创建调试器时传 { bokehPass: BokehPass }（import { BokehPass } from "three/examples/jsm/postprocessing/BokehPass.js"）。面板不自行打包第二份 three。';
+   el.classList.add('tsd-pf-warn');
+   return;
+  }
+  el.classList.remove('tsd-pf-warn');
+  let text;
+  if(!b.enabled){
+   text='默认关闭。开启后'+(info.mode==='composer'?'在编码 pass 之前插一条 BokehPass':'走自带离屏链路插一趟虚化')
+    +'；关闭会把整条 pass 从链上摘掉，画面与没开过完全一致。';
+  }else if(b.enabled&&!info.active){
+   /* 勾着但没出画面：链上找不到 / 被 enabled=false 跳过 —— 说清楚，别让用户对着没变化的画面猜 */
+   text='虚化已勾选，但通道当前未生效（未插入 composer 或 pass 处于禁用态）。点一下「启用虚化」重插一次。';
+   el.classList.add('tsd-pf-warn');
+  }else{
+   text='已插入 BokehPass'+(info.index>=0?'（passes['+info.index+']）':'（离屏链路）')+'：每帧会用 MeshDepthMaterial 把整个场景再渲一遍取深度。'
+    +'焦点 '+this.fmt(b.focus)+' / 光圈 '+this.fmtDigits(b.aperture,4)+' / 最大模糊 '+this.fmt(b.maxblur)
+    +'（光圈已按场景尺度自适应，想让背景更糊就整体调大，反之调小）。';
+  }
+  if(info.hostDof)text+=' 注意：宿主 composer 里已有 '+info.hostDof+'，两层景深会互相糊，建议先关掉它。';
+  if(el.textContent!==text)el.textContent=text;
+ }
  syncPostFX(){
   const st=this.d.postfx.state;
   if(this.pfInputs)for(const [k,input] of this.pfInputs){
    if(k==='enabled')input.checked=!!st.enabled;
+   else if(k==='bokeh.enabled')input.checked=!!st.bokeh.enabled;
    else if(k==='view')input.value=st.view;
    else{
     const v=this.d.getPostFX(k);input.value=v;this.paintRange(input,v,input.min,input.max);
     const num=input.parentElement&&input.parentElement.querySelector('.tsd-num');
-    if(num)num.value=this.fmt(v);
+    const dig=Number(input.step)<0.001?4:0;
+    if(num)num.value=dig?this.fmtDigits(v,dig):this.fmt(v);
    }
   }
+  this.postfxStatus();
  }
  textureControl(t,p,host){
   const v=this.d.inspector.read(t,p);
@@ -1173,8 +1258,20 @@ class UILayer{
  /* 只同步目标下拉，不动场景树——换材质这类「结构没变、资源变了」的操作用它 */
  syncTargets(){const old=this.targets.value;this.targets.replaceChildren();for(const t of this.d.inspector.targets.values())this.option(this.targets,t.id,t.label);if(this.d.inspector.targets.has(old))this.targets.value=old;else if(!this.targets.value){const first=this.d.inspector.targets.values().next();if(!first.done)this.targets.value=first.value.id;}}
  refresh(){this.syncTargets();const types=[...new Set(this.d.tree.nodes.map(o=>o.type))].sort(),f=this.filter.value;this.filter.replaceChildren();this.option(this.filter,'','所有类型');types.forEach(t=>this.option(this.filter,t,t));this.filter.value=f;this.tree();this.inspect();this.performance();}
- tree(){this.empty(this.treeRoot);const q=this.search.value.toLowerCase(),type=this.filter.value,matched=o=>(!q||(o.name||'').toLowerCase().includes(q))&&(!type||o.type===type),nodes=this.d.tree.nodes,set=new Set(nodes),matches=new Set(nodes.filter(matched)),visible=new Set(matches);for(const o of matches){let p=o.parent;while(p&&set.has(p)){visible.add(p);p=p.parent;}}
- const select=(o)=>{this.targets.value='object:'+o.uuid;this.inspect();};
+ tree(){this.nodeRows=new Map();this._markedUuid=null;this.empty(this.treeRoot);const q=this.search.value.toLowerCase(),type=this.filter.value,matched=o=>(!q||(o.name||'').toLowerCase().includes(q))&&(!type||o.type===type),nodes=this.d.tree.nodes,set=new Set(nodes),matches=new Set(nodes.filter(matched)),visible=new Set(matches);for(const o of matches){let p=o.parent;while(p&&set.has(p)){visible.add(p);p=p.parent;}}
+ /* 点场景树：先选中（gizmo / 包围盒 / 属性面板一起跟上），再让相机飞向该对象。
+    选中走 selectObject，它会通过 selectTarget 刷新面板；只有在选择层不可用时才手工刷。 */
+ const select=(o)=>{
+  this.targets.value='object:'+o.uuid;
+  if(o===this.d.scene){this.inspect();return;}
+  let selected=false;
+  /* 选中链路里 selectTarget 会把面板滚到目标下拉；场景树在下方，滚动会让人「点一下跳一下」，
+     这里临时压住 revealProps，属性面板照常刷新。 */
+  this.holdScroll=true;
+  try{this.d.selectObject(o);selected=true;}catch(e){}finally{this.holdScroll=false;}
+  if(!selected)this.inspect();
+  if(this.d.focusOnSelect!==false){try{this.d.focusObject('object:'+o.uuid);}catch(e){}}
+ };
  const label=o=>(o===this.d.scene?'scene':(o.name||'\u65e0\u540d\u79f0'))+' / '+o.type+' / '+String(o.uuid).slice(0,8);
  const draw=(o,parent)=>{
   if(!visible.has(o))return;
@@ -1185,15 +1282,24 @@ class UILayer{
    details.open=!!q||!!type||o===this.d.scene;
    const summary=this.el('summary',details);
    const nodeBtn=this.button(label(o),summary,()=>select(o));
-   nodeBtn.className='tsd-node';
+   nodeBtn.className='tsd-node';this.nodeRows.set(o.uuid,nodeBtn);
    host=details;
   }else{
    const nodeBtn=this.button(label(o),parent,()=>select(o));
-   nodeBtn.className='tsd-node tsd-leaf';
+   nodeBtn.className='tsd-node tsd-leaf';this.nodeRows.set(o.uuid,nodeBtn);
   }
   for(const c of kids)draw(c,host);
  };
  draw(this.d.scene,this.treeRoot);}
+ /* 高亮选中行。选中来源可能是画布点选、目标下拉或场景树，统一在这里对齐。 */
+ markNode(){
+  if(!this.nodeRows)return;
+  const sel=this.d.selection&&this.d.selection.selected;
+  const uuid=sel&&sel.uuid?sel.uuid:'';
+  if(uuid===this._markedUuid)return;
+  this._markedUuid=uuid;
+  for(const [id,btn] of this.nodeRows)btn.classList.toggle('on',!!uuid&&id===uuid);
+ }
  targetHeader(t,host){
   const title=this.el('h3',host);
   const isObj=t.object&&t.object.isObject3D&&t.object!==this.d.scene;
@@ -1231,6 +1337,7 @@ class UILayer{
   this.matBar.hidden=this.tab!=='material';
  }
  inspect(){
+  this.markNode();
   if(this.lib&&!this.lib.hidden)this.closeTextureLibrary();
   const t=this.d.inspector.targets.get(this.targets.value);
   const kind=t?.locator?.kind,materialOnly=!!t&&(kind==='material'||kind==='texture');
@@ -1277,7 +1384,7 @@ class UILayer{
   this.changes();
  }
  /* 定位到参数区：把目标下拉与页签栏一起滚到顶部，选中后立刻能切页签 */
- revealProps(){const anchor=this.targets||this.tabs;if(anchor&&anchor.scrollIntoView){anchor.scrollIntoView({block:'start'});return;}const host=this.tab==='material'?this.matBar:this.props;const el=host.querySelector('[aria-label]')||host.querySelector('input,select,textarea');if(el&&el.scrollIntoView)el.scrollIntoView({block:'center'});}
+ revealProps(){if(this.holdScroll)return;const anchor=this.targets||this.tabs;if(anchor&&anchor.scrollIntoView){anchor.scrollIntoView({block:'start'});return;}const host=this.tab==='material'?this.matBar:this.props;const el=host.querySelector('[aria-label]')||host.querySelector('input,select,textarea');if(el&&el.scrollIntoView)el.scrollIntoView({block:'center'});}
  control(t,p,f,host){
  if(f.kind==='euler'||f.kind==='vector')return;
  if(f.kind==='resource'){this.textureControl(t,p,host||this.props);return;}
@@ -1555,6 +1662,7 @@ class AssetLibrary {
   texItem(id) { return this.texItems.find(t => t.id === id) || null; }
   hdrItem(id) { return this.hdrItems.find(h => h.id === id) || null; }
   async texture(id, kind) {
+    if (this.status === 'loading') await this.ready;
     const item = this.texItem(id);
     if (!item) throw Error('未知素材贴图：' + id);
     const rel = item.files && item.files[kind];
@@ -1574,6 +1682,7 @@ class AssetLibrary {
     return tex;
   }
   async env(id) {
+    if (this.status === 'loading') await this.ready;
     if (this.envCache.has(id)) return this.envCache.get(id);
     const item = this.hdrItem(id);
     if (!item) throw Error('未知环境贴图：' + id);
@@ -2219,14 +2328,18 @@ const POSTFX_DEFAULTS = {
   bloom: { enabled: true, strength: 0.8, radius: 0.6, threshold: 1.0 },
   grade: { brightness: 0, contrast: 1, saturation: 1, temperature: 0, tint: 0 },
   vignette: { amount: 0.35, softness: 0.6 },
-  aberration: 0, grain: 0, sharpen: 0, outline: 0, pixelate: 1
+  aberration: 0, grain: 0, sharpen: 0, outline: 0, pixelate: 1,
+  /* 虚化（BokehPass 景深）：独立于总开关，默认关闭。focus 是**世界单位**的对焦距离，
+     默认值会在接管 composer 时改成「相机到观察中心」，不同页面尺度差很多（本项目整场景 2 单位）。 */
+  bokeh: { enabled: false, focus: 10, aperture: 0.025, maxblur: 0.02 }
 };
 const POSTFX_LIMITS = {
   'bloom.strength': [0, 5, 0.01], 'bloom.radius': [0, 1, 0.01], 'bloom.threshold': [0, 2, 0.01],
   'grade.brightness': [-1, 1, 0.01], 'grade.contrast': [0, 2, 0.01], 'grade.saturation': [0, 2, 0.01],
   'grade.temperature': [-1, 1, 0.01], 'grade.tint': [-1, 1, 0.01],
   'vignette.amount': [0, 1, 0.01], 'vignette.softness': [0.05, 1.5, 0.01],
-  aberration: [0, 8, 0.05], grain: [0, 1, 0.01], sharpen: [0, 1, 0.01], outline: [0, 1, 0.01], pixelate: [1, 32, 1]
+  aberration: [0, 8, 0.05], grain: [0, 1, 0.01], sharpen: [0, 1, 0.01], outline: [0, 1, 0.01], pixelate: [1, 32, 1],
+  'bokeh.focus': [0, 500, 0.05], 'bokeh.aperture': [0, 0.05, 0.0001], 'bokeh.maxblur': [0, 0.2, 0.001]
 };
 const POSTFX_VIEWS = [['final', '最终画面'], ['wireframe', '线框'], ['normal', '法线'], ['flat', '无光照剪影']];
 const ENUM_GROUPS = {
@@ -2249,7 +2362,7 @@ const POSTFX_FRAG = {
     'varying vec2 vUv;',
     'uniform sampler2D tScene, tB0, tB1, tB2, tB3;',
     'uniform vec2 uResolution;',
-    'uniform float uBloom, uBloomStrength, uBrightness, uContrast, uSaturation, uTemperature, uTint;',
+    'uniform float uBloom, uBloomStrength, uW0, uW1, uW2, uW3, uBrightness, uContrast, uSaturation, uTemperature, uTint;',
     'uniform float uVignette, uVignetteSoft, uAberration, uGrain, uSharpen, uOutline, uPixelate, uTime;',
     'float hash(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }',
     'float luma(vec3 c){ return dot(c, vec3(0.2126, 0.7152, 0.0722)); }',
@@ -2273,7 +2386,7 @@ const POSTFX_FRAG = {
     '    hdr = vec3(sceneAt(uv + off).r, sceneAt(uv).g, sceneAt(uv - off).b);',
     '  } else { hdr = sceneAt(uv); }',
     '  if(uBloom > 0.5){',
-    '    vec3 b = texture2D(tB0, uv).rgb * 0.40 + texture2D(tB1, uv).rgb * 0.28 + texture2D(tB2, uv).rgb * 0.20 + texture2D(tB3, uv).rgb * 0.12;',
+    '    vec3 b = texture2D(tB0, uv).rgb * uW0 + texture2D(tB1, uv).rgb * uW1 + texture2D(tB2, uv).rgb * uW2 + texture2D(tB3, uv).rgb * uW3;',
     '    hdr += b * uBloomStrength;',
     '  }',
     '  vec3 col = tone(hdr);',
@@ -2336,6 +2449,25 @@ class PostFX {
     this.inside = false;
     this.sceneInfo = null;
     this.materials = {};
+    /* ---- 宿主 EffectComposer 接管状态 ----
+       off    : 没注册 composer，走自带的离屏链路（patch renderer.render）
+       attach : composer 里已经有 Bloom pass，面板参数直连它，另插一条「调色附加 pass」
+       inject : composer 里没有 Bloom，启用后自己往 composer 里插一条完整后期 pass
+       两种 composer 模式都不再去 patch 输出：画面由宿主的 pass 链产生。 */
+    this.composer = null;
+    this.composerMode = 'off';
+    this.hostBloom = null;
+    this.hostBaseline = null;
+    this.composerPass = null;
+    this.composerIndex = -1;
+    this.composerLinear = true;
+    this.composerDefaults = null;
+    /* BokehPass 由宿主注入：技能内不 import addon，避免打包第二份 three */
+    this.bokehCtor = options.bokehPass || options.BokehPass || null;
+    this.bokehPass = null;
+    this.bokehRT = null;
+    this._bokehTouched = false;   // 用户是否手动调过虚化参数（调过就不再自动覆盖）
+    this._bokehWasOn = false;
     this.buildQuad();
     this.hook();
   }
@@ -2354,21 +2486,30 @@ class PostFX {
   material(kind) {
     if (this.materials[kind]) return this.materials[kind];
     const T = this.d.THREE;
+    /* compositeLinear：给「输出到宿主 composer 的中间 RT」用的变体。
+       中间目标里存的必须是线性值，颜色编码（sRGB）与 tone mapping 要留给宿主链条末尾
+       的 OutputPass / GammaCorrectionShader 去做。否则会被编码两次：暗部压死、
+       只剩自发光亮部——看起来像「后期一开画面就黑」。 */
+    const linear = kind === 'compositeLinear';
+    const base = linear ? 'composite' : kind;
     let uniforms = {};
-    if (kind === 'threshold') uniforms = { tDiffuse: { value: null }, uThreshold: { value: 1.0 }, uKnee: { value: 0.5 } };
-    else if (kind === 'blur') uniforms = { tDiffuse: { value: null }, uTexel: { value: new T.Vector2(1, 1) }, uDir: { value: new T.Vector2(1, 0) } };
+    if (base === 'threshold') uniforms = { tDiffuse: { value: null }, uThreshold: { value: 1.0 }, uKnee: { value: 0.5 } };
+    else if (base === 'blur') uniforms = { tDiffuse: { value: null }, uTexel: { value: new T.Vector2(1, 1) }, uDir: { value: new T.Vector2(1, 0) } };
     else uniforms = {
       tScene: { value: null }, tB0: { value: null }, tB1: { value: null }, tB2: { value: null }, tB3: { value: null },
       uResolution: { value: new T.Vector2(1, 1) }, uBloom: { value: 1 }, uBloomStrength: { value: 0.8 },
+      uW0: { value: 0.4 }, uW1: { value: 0.28 }, uW2: { value: 0.2 }, uW3: { value: 0.12 },
       uBrightness: { value: 0 }, uContrast: { value: 1 }, uSaturation: { value: 1 }, uTemperature: { value: 0 }, uTint: { value: 0 },
       uVignette: { value: 0.35 }, uVignetteSoft: { value: 0.6 }, uAberration: { value: 0 }, uGrain: { value: 0 }, uSharpen: { value: 0 },
       uOutline: { value: 0 }, uPixelate: { value: 1 }, uTime: { value: 0 }
     };
-    // 合成通道交给 three 做色调映射（toneMapping 定义 + colorspace_fragment 编码），
-    // 因此 toneMapped 必须为 true；阈值/模糊通道工作在渲染目标的线性空间，保持 false。
+    let fragSrc = POSTFX_FRAG[base];
+    if (linear) fragSrc = fragSrc.replace(/\s*#include <colorspace_fragment>/, '');
+    // 合成通道上屏时交给 three 做色彩编码（colorspace_fragment），因此 toneMapped 为 true；
+    // 阈值/模糊通道与 composer 内联变体工作在渲染目标的线性空间，保持 false。
     const m = new T.ShaderMaterial({
-      uniforms: uniforms, vertexShader: POSTFX_VERT, fragmentShader: POSTFX_FRAG[kind],
-      depthTest: false, depthWrite: false, toneMapped: kind === 'composite'
+      uniforms: uniforms, vertexShader: POSTFX_VERT, fragmentShader: fragSrc,
+      depthTest: false, depthWrite: false, toneMapped: base === 'composite' && !linear
     });
     m.name = 'TsdPostFX_' + kind;
     this.materials[kind] = m;
@@ -2379,7 +2520,23 @@ class PostFX {
     this.original = renderer.render.bind(renderer);
     this.patched = (scene, camera) => {
       if (this.destroyed) return this.original(scene, camera);
+      /* EffectComposer 的 RenderPass 会先把目标切到 writeBuffer 再调用 renderer.render。
+         这种「已经绑着 RT」的调用必须整趟让路：
+           - 0.8.4 试过在 composer 链路里内联合成（渲进自己的 rt → 写回调用前的目标），
+             MSAA + HalfFloat 的中间目标上实测画面会塌（暗部全黑、只剩自发光），
+             因为多采样目标未 resolve 就被下游采样。
+           - composer 场景要让画面变，正确入口是面板目标下拉里的 `pass:<index>`
+             （先 registerPostProcessing(composer)），改 bloomPass.strength 这类参数，
+             下一帧就生效，而且不碰宿主管线。 */
       if (this.inside || renderer.getRenderTarget() !== null) return this.original(scene, camera);
+      /* composer 的最后一个 pass 会用全屏四边形把结果画到屏幕，那也是 renderer.render
+         调用、RT 为 null。three 的 Pass.FullScreenQuad 直接 `renderer.render(mesh, camera)`，
+         有些自定义 pass 传的是「只有一个 Mesh 的 scene」，两种都要认。不排除的话调试器
+         会把已经后期过的画面当场景再套一层（亮度/暗角二次叠加）。 */
+      const quad = scene && scene.isMesh
+        ? scene
+        : (scene && scene.children && scene.children.length === 1 ? scene.children[0] : null);
+      if (quad && quad.isMesh && quad.geometry && camera && camera.isOrthographicCamera) return this.original(scene, camera);
       const s = this.state, view = s.view !== 'final';
       if (!s.enabled && !view) return this.original(scene, camera);
       const prevOv = view ? scene.overrideMaterial : null;
@@ -2422,16 +2579,26 @@ class PostFX {
     return m;
   }
   ensureTargets(w, h) {
-    if (this.width === w && this.height === h && this.rt) return;
-    this.disposeTargets();
+    if (this.rt && this.width === w && this.height === h) return;
+    if (this.rt) { this.rt.dispose(); this.rt = null; }
     const T = this.d.THREE, renderer = this.d.renderer, caps = renderer.capabilities || {};
     const ext = renderer.extensions;
     const half = !!(caps.isWebGL2 && ext && (ext.has('EXT_color_buffer_float') || ext.has('EXT_color_buffer_half_float')));
     const type = half ? T.HalfFloatType : T.UnsignedByteType;
     const base = { type: type, minFilter: T.LinearFilter, magFilter: T.LinearFilter, depthBuffer: false, stencilBuffer: false };
+    this.hdr = half;
+    this._base = base;
     // 场景目标：带深度 + MSAA，保证遮罩正确且抗锯齿不丢
     this.rt = new T.WebGLRenderTarget(w, h, Object.assign({ depthBuffer: true, samples: caps.isWebGL2 ? 4 : 0 }, base));
     this.rt.texture.name = 'TsdSceneTarget';
+    this.ensureBloomTargets(w, h);
+  }
+  /* composer 模式下没有自制场景 RT，这里只维护 bloom 的降采样链 */
+  ensureBloomTargets(w, h) {
+    if (this.width === w && this.height === h && this.levels.length) return;
+    this.dropBloomTargets();
+    const T = this.d.THREE;
+    const base = this._base || { type: T.HalfFloatType, minFilter: T.LinearFilter, magFilter: T.LinearFilter, depthBuffer: false, stencilBuffer: false };
     let cw = Math.max(1, w >> 1), ch = Math.max(1, h >> 1);
     this.bright = new T.WebGLRenderTarget(cw, ch, base);
     this.levels = [];
@@ -2440,9 +2607,15 @@ class PostFX {
       cw = Math.max(1, cw >> 1);
       ch = Math.max(1, ch >> 1);
     }
-    this.hdr = half;
     this.width = w;
     this.height = h;
+  }
+  dropBloomTargets() {
+    if (this.bright) { this.bright.dispose(); this.bright = null; }
+    for (const lv of this.levels) { lv.a.dispose(); lv.b.dispose(); }
+    this.levels = [];
+    this.width = 0;
+    this.height = 0;
   }
   draw(material, target, uniforms) {
     for (const k of Object.keys(uniforms)) { const u = material.uniforms[k]; if (u) u.value = uniforms[k]; }
@@ -2451,13 +2624,22 @@ class PostFX {
     renderer.setRenderTarget(target);
     renderer.render(this.quadScene, this.quadCamera);
   }
-  compose() {
-    const T = this.d.THREE, renderer = this.d.renderer, s = this.state;
-    if (!this.rt) return;
-    const bloom = s.bloom.enabled && s.bloom.strength > 0;
+  /* radius 从「只有权重」变成了真正参与合成：越小越贴紧亮部，越大越铺成柔光 */
+  bloomWeights(radius) {
+    const r = clamp(Number(radius) || 0, 0, 1), k = 0.35 + r * 1.3;
+    const raw = [0.40, 0.28 * k, 0.20 * k * k, 0.12 * k * k * k];
+    const sum = raw.reduce((a, b) => a + b, 0) || 1;
+    return raw.map(v => v / sum);
+  }
+  /* 把一张「场景颜色贴图」过完整条后期链，产物写进 target（null = 屏幕）。
+     linear=true 时不做 tone mapping / sRGB 编码——留给宿主 composer 的 OutputPass。 */
+  renderInto(renderer, sceneTexture, target, w, h, allowBloom, linear) {
+    const T = this.d.THREE, s = this.state;
+    this.ensureBloomTargets(w, h);
+    const bloom = !!allowBloom && s.bloom.enabled && s.bloom.strength > 0;
     if (bloom) {
       const th = s.bloom.threshold, knee = Math.max(0.02, th * 0.5);
-      this.draw(this.material('threshold'), this.bright, { tDiffuse: this.rt.texture, uThreshold: th, uKnee: knee });
+      this.draw(this.material('threshold'), this.bright, { tDiffuse: sceneTexture, uThreshold: th, uKnee: knee });
       let input = this.bright.texture;
       for (const lv of this.levels) {
         this.draw(this.material('blur'), lv.a, { tDiffuse: input, uTexel: new T.Vector2(1 / lv.w, 1 / lv.h), uDir: new T.Vector2(1, 0) });
@@ -2469,21 +2651,354 @@ class PostFX {
     const b1 = this.levels[1] ? this.levels[1].b.texture : null;
     const b2 = this.levels[2] ? this.levels[2].b.texture : null;
     const b3 = this.levels[3] ? this.levels[3].b.texture : null;
-    this.draw(this.material('composite'), null, {
-      tScene: this.rt.texture, tB0: b0, tB1: b1, tB2: b2, tB3: b3,
-      uResolution: new T.Vector2(this.width, this.height), uBloom: bloom ? 1 : 0, uBloomStrength: s.bloom.strength,
+    const wts = this.bloomWeights(s.bloom.radius);
+    this.draw(this.material(linear ? 'compositeLinear' : 'composite'), target, {
+      tScene: sceneTexture, tB0: b0, tB1: b1, tB2: b2, tB3: b3,
+      uW0: wts[0], uW1: wts[1], uW2: wts[2], uW3: wts[3],
+      uResolution: new T.Vector2(w, h), uBloom: bloom ? 1 : 0, uBloomStrength: s.bloom.strength,
       uBrightness: s.grade.brightness, uContrast: s.grade.contrast, uSaturation: s.grade.saturation, uTemperature: s.grade.temperature, uTint: s.grade.tint,
       uVignette: s.vignette.amount, uVignetteSoft: s.vignette.softness, uAberration: s.aberration, uGrain: s.grain, uSharpen: s.sharpen,
       uOutline: s.outline, uPixelate: s.pixelate, uTime: (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000
     });
-    renderer.setRenderTarget(null);
+    renderer.setRenderTarget(target);
+  }
+  compose(target = null) {
+    if (!this.rt) return;
+    const renderer = this.d.renderer, w = this.width, h = this.height;
+    /* 无 composer 时虚化插不进 pass 链，就在「场景已渲完」与「bloom / 合成」之间自己做一趟 */
+    const tex = (this.bokehPass && this.state.bokeh.enabled && !this.composer)
+      ? this.runBokehOff(renderer, w, h)
+      : this.rt.texture;
+    this.renderInto(renderer, tex, target, w, h, true, !!target);
+  }
+  /* ================= 宿主 composer 接管 ================= */
+
+  /* 认出「能当 Bloom 用」的 pass：既认 isUnrealBloomPass，也认自定义包装（有这三个数值字段） */
+  static isBloomPass(p) {
+    if (!p || typeof p !== 'object') return false;
+    if (p.isUnrealBloomPass) return true;
+    const name = (p.constructor && p.constructor.name) || '';
+    if (/bloom/i.test(name)) return true;
+    return typeof p.strength === 'number' && typeof p.radius === 'number' && typeof p.threshold === 'number';
+  }
+  /* 接管：把宿主现值读进 state（画面不跳），再把面板参数直连过去。
+     调用时机是 registerPostProcessing()，此时 enabled 仍是 false —— 也就是「只挂上去，不动画面」。 */
+  attachComposer(composer) {
+    if (!composer || !Array.isArray(composer.passes)) throw Error('Expected composer.passes');
+    this.releaseComposer();
+    this.composer = composer;
+    const bloom = composer.passes.find(p => PostFX.isBloomPass(p)) || null;
+    this.hostBloom = bloom;
+    if (bloom) {
+      const b = {
+        enabled: bloom.enabled !== false,
+        strength: Number(bloom.strength),
+        radius: Number(bloom.radius),
+        threshold: Number(bloom.threshold)
+      };
+      this.hostBaseline = b;
+      this.state.bloom.enabled = b.enabled;
+      if (Number.isFinite(b.strength)) this.state.bloom.strength = b.strength;
+      if (Number.isFinite(b.radius)) this.state.bloom.radius = b.radius;
+      if (Number.isFinite(b.threshold)) this.state.bloom.threshold = b.threshold;
+      this.composerMode = 'attach';
+    } else {
+      this.composerMode = 'inject';
+      /* 宿主没有后期：默认值要「一勾就能看见」。阈值是线性 HDR 亮度，1.0 表示只有白点以上
+         的像素才发光——暗场景（室内、夜景）开起来会像没开，所以这里给 0.5。 */
+      this.state.bloom.enabled = true;
+      this.state.bloom.strength = 1.2;
+      this.state.bloom.threshold = 0.35;
+    }
+    /* 注册 composer 就等于接管：直接把总开关置为 true。
+       0.9.1 及之前这里留的是 false（想「只挂上去、不动画面」），但参数其实是从宿主读来的，
+       开与不开画面完全一样——代价却是「镜头与风格 / 色彩校正 / 暗角」全被这层开关挡住，
+       拖滑块只改数字、画面纹丝不动，看着像坏了。Bloom 三项因为直写宿主 pass 还能生效，
+       于是又显得「半好半坏」。现在：attach 挂上即接管，取消勾选才是真正交还宿主；
+       inject（宿主本来没有后期）保持关闭，否则页面一加载就被套上一层泛光，基线被改掉。 */
+    this.state.enabled = this.composerMode === 'attach';
+    /* 接管时默认不加暗角：打开接管后画面应与宿主原样一致，需要时自己往上调 */
+    setPath(this.state, 'vignette.amount', 0);
+    /* 虚化的对焦距离 / 光圈先按当时机位给一组，真正勾开时还会再算一次（见 syncBokeh） */
+    this.resetBokehDistance();
+    this.composerDefaults = deepClone(this.state);
+    this.ensureComposerPass();
+    this.applyComposer();
+    /* 面板可能早在注册 composer 之前就建好了，这里要把从宿主读到的值刷回滑块，
+       否则出现「state 是 0.5、滑块停在 0.8」的错位——用户会以为接管没生效。 */
+    if (this.d && this.d.ui && this.d.ui.syncPostFX) this.d.ui.syncPostFX();
+    return this;
+  }
+  /* 调色 / 暗角这些「宿主没有的」效果，用一条插进 composer 的 pass 实现。
+     不再去 patch renderer.render —— 那条内联路线在宿主 MSAA + HalfFloat 目标上会塌成黑屏。 */
+  ensureComposerPass() {
+    if (!this.composer || this.composerPass) return;
+    const passes = this.composer.passes;
+    const isOut = p => {
+      const n = (p && p.constructor && p.constructor.name) || '';
+      if (/Output|GammaCorrection/i.test(n)) return true;
+      /* GammaCorrectionShader 被包进 ShaderPass 后构造函数名只剩 "ShaderPass"，只能看片元里
+         有没有色彩编码的 include；认错位置的代价是「已经编码过再编一次」，画面会整体发灰发白。 */
+      const fs = p && p.material && p.material.fragmentShader;
+      return typeof fs === 'string' && /colorspace_fragment|sRGBTransferOETF|LinearTosRGB|GammaCorrection/i.test(fs);
+    };
+    const outAt = passes.findIndex(isOut);
+    this.composerLinear = outAt >= 0;
+    /* 有 OutputPass / GammaCorrection 就插在它前面：pass 输出线性值，编码交给宿主收尾。
+       没有编码 pass 就插在末尾，自己完成 tone mapping + sRGB。 */
+    this.composerIndex = outAt >= 0 ? outAt : passes.length;
+    const pass = new TsdPostFXPass(this);
+    this.composerPass = pass;
+    passes.splice(this.composerIndex, 0, pass);
+  }
+  releaseComposer() {
+    const c = this.composer;
+    if (c && this.composerPass) {
+      const i = c.passes.indexOf(this.composerPass);
+      if (i >= 0) c.passes.splice(i, 1);
+    }
+    if (this.composerPass) { try { this.composerPass.dispose(); } catch (e) { } }
+    this.composerPass = null;
+    this.composerIndex = -1;
+    /* 换 composer / 销毁时虚化必须整条摘掉，否则会挂到旧链上继续渲 */
+    this.detachBokehPass();
+    /* 把宿主的 Bloom 还原成接管前的样子，避免调试器销毁后泛光莫名其妙变了 */
+    if (this.hostBloom && this.hostBaseline) {
+      const b = this.hostBaseline;
+      if (Number.isFinite(b.strength)) this.hostBloom.strength = b.strength;
+      if (Number.isFinite(b.radius)) this.hostBloom.radius = b.radius;
+      if (Number.isFinite(b.threshold)) this.hostBloom.threshold = b.threshold;
+      this.hostBloom.enabled = b.enabled;
+    }
+    this.hostBloom = null;
+    this.hostBaseline = null;
+    this.composer = null;
+    this.composerMode = 'off';
+    this.composerDefaults = null;
+  }
+  /* ================= 虚化通道（BokehPass 景深） =================
+     为什么不自己写一遍 bokeh shader：宿主注入的是官方 BokehPass，面板里看到的就是
+     工程里接入后得到的效果，导出提示词也不会出现「面板一套、代码另一套」。
+     三种模式：
+       attach / inject（有 composer）：pass 插在附加调色 pass（或编码 pass）之前，
+         关闭时从 passes 里整条摘掉，宿主链恢复原样，不留任何中间目标。
+       无 composer：走自带离屏链路，场景 RT → BokehPass → bloom/合成。
+     虚化**独立于后期总开关**：它是自己的一条 pass，不看 state.enabled
+     （无 composer 的离屏链路除外——那条路必须先启用后期才有画面可虚化）。 */
+  bokehAvailable() { return !!this.bokehCtor; }
+  bokehParams() {
+    const b = this.state.bokeh;
+    return { focus: Number(b.focus), aperture: Number(b.aperture), maxblur: Number(b.maxblur) };
+  }
+  /* 对焦距离：优先观察中心（controls.target），其次选中对象包围球中心，最后沿视线取 10 单位 */
+  focusDistance() {
+    const d = this.d, cam = d && d.camera, T = d && d.THREE;
+    if (!cam || !cam.position || !T) return 10;
+    let p = null;
+    const ctr = d.controls && d.controls.target;
+    if (ctr && Number.isFinite(ctr.x)) p = ctr;
+    if (!p) {
+      try {
+        const sel = d.getSelected && d.getSelected();
+        if (sel) { const box = new T.Box3().setFromObject(sel); if (!box.isEmpty()) p = box.getBoundingSphere(new T.Sphere()).center; }
+      } catch (e) { p = null; }
+    }
+    if (!p) p = cam.getWorldDirection(new T.Vector3()).multiplyScalar(10).add(cam.position);
+    return Math.max(0.05, cam.position.distanceTo(p));
+  }
+  ensureBokehPass() {
+    if (this.bokehPass) return this.bokehPass;
+    if (!this.bokehCtor) throw Error('未注入 BokehPass：创建调试器时传 { bokehPass: BokehPass }');
+    const pass = new this.bokehCtor(this.d.scene, this.d.camera, this.bokehParams());
+    pass.name = 'TsdBokehPass';
+    this.bokehPass = pass;
+    return pass;
+  }
+  /* BokehPass 没有 strength 这类字段，参数全在 uniforms 上 */
+  syncBokehUniforms(pass) {
+    const u = pass && pass.uniforms;
+    if (!u) return;
+    const p = this.bokehParams();
+    if (u.focus) u.focus.value = p.focus;
+    if (u.aperture) u.aperture.value = p.aperture;
+    if (u.maxblur) u.maxblur.value = p.maxblur;
+    if (u.aspect && this.d.camera && this.d.camera.aspect) u.aspect.value = this.d.camera.aspect;
+  }
+  /* 插在附加调色 pass 之前（它已经在编码 pass 之前），没有附加 pass 就按 composerIndex */
+  bokehInsertIndex() {
+    const passes = this.composer.passes;
+    if (this.composerPass) { const i = passes.indexOf(this.composerPass); if (i >= 0) return i; }
+    const i = Number(this.composerIndex);
+    return i >= 0 && i <= passes.length ? i : passes.length;
+  }
+  attachBokehPass() {
+    const pass = this.ensureBokehPass();
+    this.syncBokehUniforms(pass);
+    /* 摘除时会把 enabled 置 false（EffectComposer 靠它跳过 pass），再插回来必须显式打开，
+       否则实例还在链上、enabled 仍是 false，画面纹丝不动——第二次开启就「没效果」了。 */
+    pass.enabled = true;
+    if (!this.composer) return pass;
+    const passes = this.composer.passes;
+    if (passes.indexOf(pass) < 0) passes.splice(this.bokehInsertIndex(), 0, pass);
+    /* 尺寸：composer.setSize 只在窗口尺寸变化时才会调 pass.setSize，晚插进来的 pass
+       必须自己补一次，否则深度 RT 停在 1x1，整屏会被当成「全在焦外」糊成一片。 */
+    const rt = this.composer.renderTarget1;
+    if (rt && rt.width > 0 && rt.height > 0) pass.setSize(rt.width, rt.height);
+    return pass;
+  }
+  detachBokehPass() {
+    const c = this.composer, pass = this.bokehPass;
+    if (c && pass) { const i = c.passes.indexOf(pass); if (i >= 0) c.passes.splice(i, 1); }
+    if (this.bokehRT) { this.bokehRT.dispose(); this.bokehRT = null; }
+    if (pass) pass.enabled = false;
+  }
+  /* 按当前机位给一组「能看见但不过火」的默认值：
+     focus = 相机到观察中心；aperture = maxblur / (0.5 * focus)，即 1.5 倍对焦距离处糊到上限。
+     aperture 乘的是**世界单位深度差**，所以不能用场景包围盒半径来归一：
+     地面 / 天空球会把半径撑到几十（本项目实测 28.6），算出来的光圈小到肉眼看不见。 */
+  resetBokehDistance() {
+    const f = Math.round(this.focusDistance() * 100) / 100;
+    this.state.bokeh.focus = f;
+    const ref = Math.max(0.5, f * 0.5);
+    const a = Math.min(0.05, Math.max(0.0001, this.state.bokeh.maxblur / ref));
+    this.state.bokeh.aperture = Math.round(a * 10000) / 10000;
+    if (this.d && this.d.ui && this.d.ui.syncPostFX) this.d.ui.syncPostFX('bokeh.focus');
+  }
+  /* 每次改参数都过这里：开→确保在链上并同步参数；关→整条摘掉 */
+  syncBokeh() {
+    const b = this.state.bokeh;
+    const want = !!b.enabled && this.bokehAvailable();
+    /* 刚被勾开、且用户没手动调过 → 按当前机位重算一次。composer 注册得早，
+       那会儿相机可能还在初始位（/detail 实测 focus=1），沿用旧值会一开就全糊。 */
+    if (want && !this._bokehWasOn && !this._bokehTouched) this.resetBokehDistance();
+    this._bokehWasOn = want;
+    if (!want) { this.detachBokehPass(); return; }
+    if (!this.composer && !this.state.enabled) {
+      /* 无 composer 时虚化只能挂在自己的离屏链路上，链路由总开关启用 */
+      this.state.enabled = true;
+      const cb = this.d && this.d.ui && this.d.ui.pfInputs && this.d.ui.pfInputs.get('enabled');
+      if (cb) cb.checked = true;
+    }
+    this.attachBokehPass();
+  }
+  /* 无 composer：把场景 RT 过一趟 BokehPass，产物当后面的「场景颜色」用 */
+  runBokehOff(renderer, w, h) {
+    const pass = this.bokehPass, T = this.d.THREE;
+    if (!this.bokehRT || this.bokehRT.width !== w || this.bokehRT.height !== h) {
+      if (this.bokehRT) this.bokehRT.dispose();
+      this.bokehRT = new T.WebGLRenderTarget(w, h, Object.assign({ depthBuffer: false, stencilBuffer: false }, this._base || {}));
+      this.bokehRT.texture.name = 'TsdBokehTarget';
+    }
+    pass.setSize(w, h);
+    this.syncBokehUniforms(pass);
+    const inside = this.inside;
+    /* BokehPass 内部会自己 renderer.render 一次场景取深度，必须让它绕过本调试器的 patch */
+    this.inside = true;
+    try { pass.render(renderer, this.bokehRT, this.rt); }
+    finally { this.inside = inside; renderer.setRenderTarget(null); }
+    return this.bokehRT.texture;
+  }
+  bokehInfo() {
+    const c = this.composer, pass = this.bokehPass;
+    const host = c ? (c.passes.find(p => p !== pass && /depth|dof|bokeh|focus|blur/i.test((p && p.constructor && p.constructor.name) || '')) || null) : null;
+    const index = c && pass ? c.passes.indexOf(pass) : -1;
+    /* active = 此刻真的在出画面：总开关勾着、pass 在链上、且没有被 enabled=false 跳过 */
+    const active = !!pass && pass.enabled !== false && (c ? index >= 0 : !!this.state.bokeh.enabled);
+    return {
+      available: this.bokehAvailable(),
+      enabled: !!this.state.bokeh.enabled,
+      active: active,
+      params: this.bokehParams(),
+      index: index,
+      hostDof: host ? ((host.constructor && host.constructor.name) || '?') : null,
+      mode: c ? 'composer' : 'offscreen'
+    };
+  }
+  /* 除 Bloom 之外是否还有非中性参数（全中性时附加 pass 直接 enabled=false，零开销、零画面变化） */
+  extrasActive() {
+    const s = this.state, g = s.grade;
+    return g.brightness !== 0 || g.contrast !== 1 || g.saturation !== 1 || g.temperature !== 0 || g.tint !== 0
+      || s.vignette.amount > 0 || s.aberration > 0 || s.grain > 0 || s.sharpen > 0 || s.outline > 0 || s.pixelate > 1;
+  }
+  /* composer 模式下「只改 state 不会让画面变」——每次改参数都要同步到宿主 pass 上 */
+  applyComposer() {
+    /* 虚化独立于总开关与附加 pass，任何一次改参数都要先把它对齐（插 / 摘 / 同步参数） */
+    this.syncBokeh();
+    if (!this.composer) {
+      if (this.d && this.d.ui && this.d.ui.postfxStatus) this.d.ui.postfxStatus();
+      return;
+    }
+    const s = this.state;
+    if (this.hostBloom) {
+      const on = !!s.enabled, b = this.hostBaseline;
+      if (on) {
+        this.hostBloom.strength = s.bloom.strength;
+        this.hostBloom.radius = s.bloom.radius;
+        this.hostBloom.threshold = s.bloom.threshold;
+        this.hostBloom.enabled = !!s.bloom.enabled;
+      } else {
+        /* 关闭接管 = 完全交还宿主。强度也要还原：只还 enabled 的话，
+           「关掉」看到的是「宿主开关 + 面板强度」的混合体，A/B 对比不成立。 */
+        if (b) {
+          if (Number.isFinite(b.strength)) this.hostBloom.strength = b.strength;
+          if (Number.isFinite(b.radius)) this.hostBloom.radius = b.radius;
+          if (Number.isFinite(b.threshold)) this.hostBloom.threshold = b.threshold;
+          this.hostBloom.enabled = !!b.enabled;
+        } else this.hostBloom.enabled = true;
+      }
+    }
+    if (this.composerPass) {
+      // attach：Bloom 归宿主 pass，本 pass 只负责有值的调色项；inject：整条链路都归它
+      this.composerPass.enabled = this.composerMode === 'attach'
+        ? (!!s.enabled && this.extrasActive())
+        : !!s.enabled;
+    }
+    if (this.d && this.d.ui && this.d.ui.postfxStatus) this.d.ui.postfxStatus();
+  }
+  defaults() {
+    return this.composerDefaults || POSTFX_DEFAULTS;
+  }
+  composerInfo() {
+    const passes = this.composer ? this.composer.passes : [];
+    const cls = p => (p && p.constructor && p.constructor.name) || '?';
+    return {
+      mode: this.composerMode,
+      hasComposer: !!this.composer,
+      passCount: passes.length,
+      bloomPass: this.hostBloom ? cls(this.hostBloom) : null,
+      bloomIndex: this.hostBloom ? passes.indexOf(this.hostBloom) : -1,
+      helperPass: this.composerPass ? cls(this.composerPass) : null,
+      helperIndex: this.composerPass ? passes.indexOf(this.composerPass) : -1,
+      linearOutput: this.composerLinear,
+      enabled: !!this.state.enabled,
+      bokeh: this.bokehInfo()
+    };
   }
   get(path) { return parts(path).reduce((v, k) => (v == null ? undefined : v[k]), this.state); }
+  /* 拖任意后期参数时，若总开关还关着就先打开它。
+     用户拖滑块的意思就是「我要看到这个效果」，此时让参数默默失效是最糟的反馈：
+     数字在动、画面不变、也不报错。enabled / view 本身不触发（那是显式开关）。 */
+  ensureActive(path) {
+    if (!path || path === 'enabled' || path === 'view') return false;
+    /* 虚化是独立通道，有自己的开关，不该顺手把整套后期拉起来 */
+    if (path.indexOf('bokeh.') === 0) return false;
+    if (this.state.enabled) return false;
+    this.state.enabled = true;
+    /* 只翻转总开关那个勾选框，不能调 syncPostFX()：它会把所有滑块按 state 重写一遍，
+       而此刻正要写入的那个滑块还停在旧值上，会被刷回原值——用户拖到一半就被拽回去。 */
+    const ui = this.d && this.d.ui;
+    const cb = ui && ui.pfInputs && ui.pfInputs.get('enabled');
+    if (cb) cb.checked = true;
+    return true;
+  }
   preview(path, value) {
+    if (path && path.indexOf('bokeh.') === 0 && path !== 'bokeh.enabled') this._bokehTouched = true;
     const cur = this.get(path);
     if (typeof cur === 'number') { value = Number(value); if (!Number.isFinite(value)) throw Error('后期参数需要有限数字：' + path); }
     if (path === 'view' && !POSTFX_VIEWS.some(v => v[0] === value)) throw Error('未知调试视图：' + value);
+    this.ensureActive(path);
     setPath(this.state, path, value);
+    this.applyComposer();
   }
   set(path, value, oldValue) {
     const cur = this.get(path);
@@ -2496,14 +3011,17 @@ class PostFX {
       const lim = POSTFX_LIMITS[path];
       if (lim) value = clamp(value, lim[0], lim[1]);
     }
+    this.ensureActive(path);
+    if (path.indexOf('bokeh.') === 0 && path !== 'bokeh.enabled') this._bokehTouched = true;
     const prev = oldValue === undefined ? cur : oldValue;
     setPath(this.state, path, value);
     if (oldValue === undefined && equal(prev, value)) return null;
     const rec = this.d.tracker.recordCustom({
       target: 'editor:postfx', name: '后期处理', ownerName: '画面', path: path,
       oldText: String(prev), newText: String(value), api: 'tsd.setPostFX',
-      undo: () => { setPath(this.state, path, prev); }
+      undo: () => { setPath(this.state, path, prev); this.applyComposer(); if (this.d.ui && this.d.ui.syncPostFX) this.d.ui.syncPostFX(path); }
     });
+    this.applyComposer();
     if (this.d.ui && this.d.ui.syncPostFX) this.d.ui.syncPostFX(path);
     if (this.d.ui) this.d.ui.changes();
     return rec;
@@ -2518,9 +3036,11 @@ class PostFX {
   }
   destroy() {
     if (this.destroyed) return;
+    this.releaseComposer();
     this.destroyed = true;
     if (this.d && this.d.renderer && this.d.renderer.render === this.patched) this.d.renderer.render = this.original;
     this.disposeTargets();
+    if (this.bokehPass) { try { this.bokehPass.dispose(); } catch (e) { } this.bokehPass = null; }
     for (const m of Object.values(this.materials)) m.dispose();
     for (const m of Object.values(this._views || {})) m.dispose();
     if (this.geometry) this.geometry.dispose();
@@ -2528,6 +3048,35 @@ class PostFX {
     this.quad = null;
     this.d = null;
   }
+}
+
+/* 插进宿主 EffectComposer 的后期 pass（0.9.0）。
+   为什么是 pass 而不是继续 patch renderer.render：EffectComposer 的 RenderPass 会先把目标
+   切到 writeBuffer，patch 只在「已绑定 RT」时让路，等于在 composer 场景里永不生效；而 pass
+   本来就在链上，能直接拿到 readBuffer，也不需要改宿主渲染循环。
+   不 import Postprocessing/Pass.js：复用自带的 quadScene，避免带进第二份 three。 */
+class TsdPostFXPass {
+  constructor(fx) {
+    this.fx = fx;
+    this.enabled = false;      // 由 PostFX.applyComposer 控制
+    this.needsSwap = true;
+    this.clear = false;
+    this.renderToScreen = false;
+    this.name = 'TsdPostFXPass';
+  }
+  render(renderer, writeBuffer, readBuffer) {
+    const fx = this.fx;
+    if (!fx || fx.destroyed || !readBuffer || !writeBuffer) return;
+    const w = readBuffer.width | 0, h = readBuffer.height | 0;
+    if (w < 4 || h < 4) return;
+    /* attach 模式下 Bloom 归宿主的 UnrealBloomPass，这里只做调色，否则叠两次泛光 */
+    fx.renderInto(renderer, readBuffer.texture, writeBuffer, w, h, fx.composerMode !== 'attach', fx.composerLinear);
+  }
+  setSize() {
+    const fx = this.fx;
+    if (fx && !fx.destroyed) fx.dropBloomTargets();
+  }
+  dispose() { this.fx = null; }
 }
 
 /* ======================= 光源辅助 ======================= */
@@ -2643,6 +3192,7 @@ class SelectionLayer {
     this.mode = options.transformMode || 'translate';
     this.selected = null;
     this.gizmo = null;
+    this.gizmoHelper = null;   // r169+ 的可视 Object3D（旧版与 this.gizmo 是同一个对象）
     this.box = null;
     this.before = null;
     this.down = null;
@@ -2669,7 +3219,7 @@ class SelectionLayer {
     if (this.raycaster.params && this.raycaster.params.Line) this.raycaster.params.Line.threshold = 0.25;
     this.pointer = new this.d.THREE.Vector2();
     const add = (node, type, fn) => { node.addEventListener(type, fn); this.listeners.push([node, type, fn]); };
-    add(this.canvas, 'pointerdown', e => { if (e.button === 0) this.down = { x: e.clientX, y: e.clientY }; });
+    add(this.canvas, 'pointerdown', e => { if (e.button === 0) this.down = { x: e.clientX, y: e.clientY }; if (this.d._focusRaf != null) this.d._stopFocus(); });
     add(this.canvas, 'pointerup', e => { this.pick(e); });
     add(globalThis, 'keydown', e => this.onKey(e));
   }
@@ -2717,7 +3267,7 @@ class SelectionLayer {
       else { this.box.setFromObject(target); this.box.visible = true; }
     }
     const g = this.ensureGizmo();
-    if (g) { g.attach(target); g.visible = true; }
+    if (g) { g.attach(target); if (this.gizmoHelper) this.gizmoHelper.visible = true; }
     this.d.emit('select', target);
     if (target.uuid) { try { this.d.selectTarget('object:' + target.uuid); } catch (e) { } }
     return this;
@@ -2726,7 +3276,8 @@ class SelectionLayer {
     if (!this.selected) { if (this.box) this.box.visible = false; return this; }
     this.selected = null;
     if (this.box) this.box.visible = false;
-    if (this.gizmo) { this.gizmo.detach(); this.gizmo.visible = false; }
+    if (this.gizmo) this.gizmo.detach();
+    if (this.gizmoHelper) this.gizmoHelper.visible = false;
     this.d.emit('deselect');
     return this;
   }
@@ -2734,12 +3285,17 @@ class SelectionLayer {
     if (this.gizmo) return this.gizmo;
     if (!this.TC) return null;
     const g = new this.TC(this.d.camera, this.canvas);
-    g.name = 'TransformGizmo';
-    g.userData.tsdIgnore = true;
+    /* Three r169+ 把 TransformControls 从 Object3D 改成了 Controls：
+       它自己不能加进场景、也没有 userData / visible，真正的可视图元由 getHelper() 返回。
+       旧版本没有 getHelper()，它本身就是 Object3D，两条路径共用下面的 helper。 */
+    const helper = (typeof g.getHelper === 'function') ? g.getHelper() : g;
+    helper.name = 'TransformGizmo';
+    helper.userData.tsdIgnore = true;
+    if (helper !== g) g.name = 'TransformControls';
     if (g.setMode) g.setMode(this.mode);
     if (g.setSpace) g.setSpace('world');
     if ('size' in g) g.size = 0.9;
-    g.visible = false;
+    helper.visible = false;
     g.addEventListener('dragging-changed', e => {
       if (this.d.controls) this.d.controls.enabled = !e.value;
       const o = g.object;
@@ -2755,8 +3311,9 @@ class SelectionLayer {
       if (this.box && this.box.visible) this.box.update();
       this.d.emit('transform', g.object);
     });
-    this.d.scene.add(g);
+    this.d.scene.add(helper);
     this.gizmo = g;
+    this.gizmoHelper = helper;
     return g;
   }
   snapshot(o) {
@@ -2803,9 +3360,10 @@ class SelectionLayer {
     this.listeners = [];
     if (this.gizmo) {
       try { this.gizmo.detach && this.gizmo.detach(); } catch (e) { }
-      if (this.gizmo.parent) this.gizmo.parent.remove(this.gizmo);
+      if (this.gizmoHelper && this.gizmoHelper.parent) this.gizmoHelper.parent.remove(this.gizmoHelper);
       try { this.gizmo.dispose && this.gizmo.dispose(); } catch (e) { }
       this.gizmo = null;
+      this.gizmoHelper = null;
     }
     if (this.box) { disposeHelper(this.box); this.box = null; }
     this.selected = null;
@@ -2851,6 +3409,11 @@ const MATERIAL_COPY_PROPS = ('name opacity transparent alphaTest alphaHash side 
 class SceneDebugger{
  constructor(options={}){const discovered=new SceneDiscovery(options);Object.assign(this,discovered);this.pixelRatioCap=options.pixelRatioCap??2;if(!Number.isFinite(this.pixelRatioCap)||this.pixelRatioCap<=0)throw Error('Invalid pixelRatioCap');this.destroyed=false;this.warnings=new Set();this.tree=new SceneTreeBuilder(this);this.inspector=new PropertyInspector(this);this.tracker=new ChangeTracker(this);this.performance=new PerformanceMonitor(this);this.assets=new AssetLibrary(this,options);this.textures=new TextureStudio(this);this.storage=options.storage||(typeof window!=='undefined'?(()=>{try{return window.localStorage;}catch{return null;}})():null);this.tree.build();this.inspector.rebuild();
 this.logChanges=options.logChanges!==false;
+/* 场景树点一下就选中并让相机飞过去取景；focusDuration=0 表示瞬移 */
+this.focusOnSelect=options.focusOnSelect!==false;
+this._focusRaf=null;
+/* autoNear：目标比相机 near 还小时，临时压低 near 才贴得上去（默认不动宿主相机） */
+this.autoNear=options.autoNear===true;
 this.handlers={select:options.onSelect||null,deselect:options.onDeselect||null,transformStart:options.onTransformStart||null,transform:options.onTransform||null,transformEnd:options.onTransformEnd||null,mode:options.onMode||null,toggle:options.onToggle||null};
 this.envLib=new EnvironmentLibrary(this);
 this._envUseAsBackground=!!options.envAsBackground;
@@ -2861,11 +3424,21 @@ this._envBgBlur='backgroundBlurriness' in this.scene?this.scene.backgroundBlurri
 this._envPrev='none';
 this.lightHelpers=new LightHelperLayer(this,options).rebuild();
 this.postfx=new PostFX(this,options);
+{const comp=options.composer||SceneDebugger.findComposer();if(comp)this.postfx.attachComposer(comp);}
 this.helpers={grid:null,axes:null,gridOn:false,axesOn:false};
 this.ui=new UILayer(this,options.container);this.ui.refresh();
 this.selection=new SelectionLayer(this,options);
 this.performance.start();liveInstances++;}
  assert(){if(this.destroyed)throw Error('Debugger destroyed');}
+ /* 没显式传 composer 时，从几个常见全局名兜底探测：形状对得上（有 passes 数组 + render 函数）才认 */
+ static findComposer(){
+  if(typeof window==='undefined')return null;
+  for(const k of ['composer','finalComposer','effectComposer','__composer']){
+   let c=null;try{c=window[k];}catch(e){c=null;}
+   if(c&&Array.isArray(c.passes)&&typeof c.render==='function')return c;
+  }
+  return null;
+ }
  refresh(){this.assert();this.tree.build();this.inspector.rebuild();if(this.lightHelpers)this.lightHelpers.rebuild();this.ui.refresh();return this;}
  selectTarget(id){this.assert();const t=this.target(id);this.ui.setOpen(true);this.ui.targets.value=t.id;this.ui.inspect();this.ui.revealProps();return this;}
  open(){this.assert();this.ui.setOpen(true);return this;}
@@ -2877,7 +3450,7 @@ this.performance.start();liveInstances++;}
  /* tick 由宿主渲染循环每帧调用。销毁后必须静默返回而不是抛错：宿主循环通常写成
    dbg.tick(now)（或 debug?.tick()），一旦抛错整帧中断，业务自己的相机动画也一起挂掉。
    写操作（set/undo/...）仍然走 assert 抛错，避免误用已销毁实例。 */
-tick(time){if(this.destroyed)return;if(time!==undefined&&!Number.isFinite(time))throw Error('tick timestamp must be finite milliseconds');this.performance.tick(time);if(this.lightHelpers)this.lightHelpers.update();if(this.selection)this.selection.tick();}
+tick(time){if(this.destroyed)return;if(this._nearSaved&&this._focusRaf==null)this._restoreNear(false);if(time!==undefined&&!Number.isFinite(time))throw Error('tick timestamp must be finite milliseconds');this.performance.tick(time);if(this.lightHelpers)this.lightHelpers.update();if(this.selection)this.selection.tick();}
 
  /* -------- 预览与提交（滑块拖动中不刷日志，松手只记一条） -------- */
  preview(id,path,value){
@@ -2901,6 +3474,11 @@ tick(time){if(this.destroyed)return;if(time!==undefined&&!Number.isFinite(time))
  /* -------- 环境与光源 -------- */
  setEnvironment(id){
   this.assert();
+  /* manifest 是异步加载的：插件刚初始化就切 HDR 时等待一次，不要直接报“未知预设”。 */
+  if(String(id).indexOf('hdr:')===0&&this.assets&&this.assets.status==='loading'){
+   this.assets.ready.then(()=>{if(this.destroyed)return;try{this.setEnvironment(id);}catch(e){if(this.warnings)this.warnings.add(e.message);}});
+   return this;
+  }
   const prev=this.envLib.current;
   this.envLib.apply(id);
   this._envPrev=id;
@@ -2936,9 +3514,13 @@ tick(time){if(this.destroyed)return;if(time!==undefined&&!Number.isFinite(time))
 
  /* -------- 后期处理 / 调试视图 / 截图 -------- */
 setPostFX(path,value,oldValue){this.assert();return this.postfx.set(path,value,oldValue);}
+/* 把虚化对焦距离拉到「观察中心 / 选中物体」，面板上的按钮走这里；返回设置后的距离 */
+focusBokeh(){this.assert();const v=this.postfx.focusDistance();this.setPostFX('bokeh.focus',Math.round(v*1000)/1000);return v;}
+bokehInfo(){this.assert();return this.postfx.bokehInfo();}
 getPostFX(path){this.assert();return path?this.postfx.get(path):deepClone(this.postfx.state);}
 previewPostFX(path,value){this.assert();this.postfx.preview(path,value);return this;}
 setViewMode(mode){this.assert();return this.postfx.set('view',mode);}
+composerInfo(){this.assert();return this.postfx.composerInfo();}
 screenshot(){
  this.assert();
  this.renderer.render(this.scene,this.camera);
@@ -2994,8 +3576,10 @@ downloadScreenshot(){
 resetPostFX(){
  this.assert();
  const prev=deepClone(this.postfx.state);
- this.postfx.state=deepClone(POSTFX_DEFAULTS);
- this.tracker.recordCustom({target:'editor:postfx',name:'后期处理',ownerName:'画面',path:'reset',oldText:'自定义',newText:'默认',api:'tsd.resetPostFX',undo:()=>{this.postfx.state=deepClone(prev);this.ui.syncPostFX();}});
+ this.postfx._bokehTouched=false;
+ this.postfx.state=deepClone(this.postfx.defaults());
+ this.postfx.applyComposer();
+ this.tracker.recordCustom({target:'editor:postfx',name:'后期处理',ownerName:'画面',path:'reset',oldText:'自定义',newText:'默认',api:'tsd.resetPostFX',undo:()=>{this.postfx.state=deepClone(prev);this.postfx.applyComposer();this.ui.syncPostFX();}});
  this.ui.syncPostFX();this.ui.changes();
  return this;
 }
@@ -3004,10 +3588,80 @@ exportPostFXMarkdown(){
  const st=this.postfx.state,lines=['# 后期处理参数',''];
  lines.push('```js');
  lines.push('tsd.setPostFX("enabled", '+st.enabled+');');
- for(const path of Object.keys(POSTFX_LIMITS)){const v=this.postfx.get(path);lines.push('tsd.setPostFX("'+path+'", '+(typeof v==='number'?trimNumber(v):JSON.stringify(v))+');');}
+ lines.push('tsd.setPostFX("bokeh.enabled", '+!!st.bokeh.enabled+');');
+ for(const path of Object.keys(POSTFX_LIMITS)){const v=this.postfx.get(path);const txt=typeof v!=='number'?JSON.stringify(v):(path==='bokeh.aperture'?String(Number(v.toFixed(4))):trimNumber(v));lines.push('tsd.setPostFX("'+path+'", '+txt+');');}
  lines.push('tsd.setViewMode('+JSON.stringify(st.view)+');');
  lines.push('```','');
  lines.push('> Bloom 走「离屏 HDR 渲染 → 阈值 → 4 级高斯模糊 → 合成」；其余为合成着色器内的单遍效果，色调映射沿用三次渲染器设置。');
+ const plan=this.exportComposerPlan();
+ if(plan)lines.push('',plan);
+ const bokeh=this.exportBokehPlan();
+ if(bokeh)lines.push('',bokeh);
+ return lines.join('\n');
+}
+/* 后期参数如何落到源码：接管了哪个 pass、附加 pass 插在第几位、编码由谁收尾 */
+exportComposerPlan(){
+ const fx=this.postfx;
+ if(!fx||fx.composerMode==='off'||!fx.composer)return '';
+ const st=fx.state,n=v=>trimNumber(v),cls=p=>p&&p.constructor&&p.constructor.name||'?';
+ const passes=fx.composer.passes;
+ const lines=['## 后期链路（EffectComposer）',''];
+ lines.push('- composer.passes：'+passes.map((p,i)=>i+': '+cls(p)).join(' / '));
+ lines.push('- 共 '+passes.length+' 个 pass，'+(fx.composerLinear?'末尾有编码 pass（OutputPass / GammaCorrection）':'末尾没有编码 pass'));
+ if(fx.composerMode==='attach'){
+  lines.push('- 已接管 `'+cls(fx.hostBloom)+'`（`composer.passes['+passes.indexOf(fx.hostBloom)+']`）：Bloom 开关 = 该 pass 的 `enabled`，strength / radius / threshold 直接写它的同名字段。');
+  if(fx.composerPass&&passes.indexOf(fx.composerPass)>=0)lines.push('- 调色 / 暗角 / 色差 / 锐化 / 描边由 `'+cls(fx.composerPass)+'`（`composer.passes['+passes.indexOf(fx.composerPass)+']`）负责，它必须在编码 pass 之前。');
+ }else{
+  lines.push('- 宿主没有 Bloom：`'+cls(fx.composerPass)+'` 应插在 `composer.passes['+fx.composerIndex+']`（'+(fx.composerLinear?'编码 / OutputPass 之前':'链末')+'），Bloom 链路由它一次画完。');
+ }
+ const params=['strength='+n(st.bloom.strength),'radius='+n(st.bloom.radius),'threshold='+n(st.bloom.threshold),'bloomEnabled='+(!!(st.enabled&&st.bloom.enabled))];
+ const g=st.grade;
+ if(fx.extrasActive())params.push('brightness='+n(g.brightness),'contrast='+n(g.contrast),'saturation='+n(g.saturation),'temperature='+n(g.temperature),'tint='+n(g.tint),'vignette='+n(st.vignette.amount),'vignetteSoft='+n(st.vignette.softness),'aberration='+n(st.aberration),'grain='+n(st.grain),'sharpen='+n(st.sharpen),'outline='+n(st.outline),'pixelate='+n(st.pixelate));
+ const bi=fx.bokehPass?passes.indexOf(fx.bokehPass):-1;
+ if(bi>=0)lines.push('- `TsdBokehPass` 在 `composer.passes['+bi+']`（官方 BokehPass 实例），关闭虚化时从链上摘除并把 `enabled` 置 false（实例保留，再次开启直接插回，不复建深度 RT）。');
+ lines.push('- 目标参数：`'+params.join('`, `')+'`');
+ lines.push('','> 插进 composer 的 pass 必须输出**线性**值（不做 tone mapping / sRGB 编码），编码交给链末的 OutputPass / GammaCorrectionShader；否则会暗部压死、只剩自发光。');
+ return lines.join('\n');
+}
+/* 虚化通道怎么落到源码：装什么包、import 哪条路径、插在第几位、参数是多少、怎么关 */
+exportBokehPlan(){
+ const fx=this.postfx;
+ if(!fx||!fx.state.bokeh.enabled)return '';
+ const info=fx.bokehInfo(),p=fx.bokehParams(),n=v=>trimNumber(v);
+ const rev=this.THREE&&this.THREE.REVISION?'r'+this.THREE.REVISION:'';
+ const at=info.index>=0?info.index:null;
+ const lines=['## 虚化通道（BokehPass 景深）',''];
+ lines.push('面板已开启虚化，下面是可直接落地的写法，参数就是面板里当前这组值。','');
+ lines.push('1) 安装：`BokehPass` 随 three 的 `examples/jsm` 分发，**不是独立 npm 包**，装 three 即可：`npm i three`'
+  +(rev?'（当前项目 '+rev+'，注意 three 0.16x 与 older 的 uniforms 名称不同）':'')+'。');
+ lines.push('2) 引入：');
+ lines.push('```js');
+ lines.push("import { BokehPass } from 'three/examples/jsm/postprocessing/BokehPass.js';");
+ lines.push('```');
+ lines.push('3) 插到 '+(at!==null?'`composer.passes['+at+']`（编码 pass 之前、调色 pass 之前）':'编码 pass 之前')+'：');
+ lines.push('```js');
+ lines.push('const bokehPass = new BokehPass(scene, camera, {');
+ lines.push('  focus: '+n(p.focus)+',      // 世界单位：对焦距离 = 相机到主体的距离');
+ lines.push('  aperture: '+Number(p.aperture.toFixed(4))+',  // 光圈：与「世界单位深度差」相乘的系数，越大景深越浅；本场景按 maxblur/focus 自适应到该值');
+ lines.push('  maxblur: '+n(p.maxblur)+'    // 模糊上限（UV 比例）：0.01 轻微，0.05 明显');
+ lines.push('});');
+ lines.push('composer.addPass(bokehPass);'+(at!==null?'   // 需要精确位置就 composer.insertPass(bokehPass, '+at+')':'')); 
+ lines.push('```');
+ lines.push('4) 关闭 / 对比（两条路都必须完全回到「没有虚化」的画面）：');
+ lines.push('```js');
+ lines.push('// A. 临时对比：留实例、只跳过渲染，可随时切回');
+ lines.push('bokehPass.enabled = false;');
+ lines.push('// B. 彻底移除：从链上摘掉并释放深度 RT / 材质');
+ lines.push('const i = composer.passes.indexOf(bokehPass);');
+ lines.push('if (i >= 0) composer.passes.splice(i, 1);');
+ lines.push('bokehPass.dispose();');
+ lines.push('```');
+ lines.push('5) 注意：');
+ lines.push('- 每帧成本 = 一次全场景 `MeshDepthMaterial` 深度渲染（draw call 基本翻倍），移动端慎用。');
+ lines.push('- `focus` 是世界单位；相机 `near/far` 参与深度解码，改完要 `camera.updateProjectionMatrix()`。');
+ lines.push('- 只把 `focus` 调得很大**不等于关闭**：深度 pass 照常跑，开销不变、只是找不到合焦点。');
+ lines.push('- 透明度靠 `alphaTest`/`transparent` 的物体在深度 pass 里不会被正确剔除，树、玻璃这类场景要单独验。');
+ if(info.hostDof)lines.push('- 宿主 composer 里已有 `'+info.hostDof+'`：两层 DOF 叠加会互相糊，接入前先把它 `enabled = false` 或按需二选一。');
  return lines.join('\n');
 }
 
@@ -3269,28 +3923,99 @@ removeObject(id){
  this.ui.changes();
  return o;
 }
-focusObject(id){
+focusObject(id,options){
  this.assert();
- const t=this.target(id),o=t.object;
- if(!o||!o.isObject3D||o===this.scene)throw Error('场景根节点不能聚焦');
- const T=this.THREE;
+ const t=this.target(id),o=t&&t.object;
+ if(!o||!o.isObject3D)throw Error('只有 Object3D 可以聚焦');
+ if(o===this.scene)throw Error('场景根节点不能聚焦');
+ const T=this.THREE,opts=options||{};
  const box=new T.Box3().setFromObject(o);
- if(box.isEmpty())throw Error('对象没有可聚焦的包围盒');
- const sphere=box.getBoundingSphere(new T.Sphere());
- const target=sphere.center.clone();
- const dir=this.camera.position.clone().sub(target);
- if(dir.lengthSq()<1e-8)dir.set(1,1,1);
- const fov=this.camera.isPerspectiveCamera?this.camera.fov:60;
- const dist=Math.max(sphere.radius*1.6,0.5)/Math.tan(fov*Math.PI/360);
- this.camera.position.copy(target).add(dir.normalize().multiplyScalar(dist*1.25));
- if(this.controls){
-  if(this.controls.target)this.controls.target.copy(target);
+ const center=new T.Vector3();
+ let radius;
+ if(box.isEmpty()){
+  /* 灯光 / 空 Object3D / 相机没有几何体，包围盒是空的：退化成「世界坐标 + 默认取景半径」。
+     否则在场景树里点一个光源会直接抛错，相机一动不动。 */
+  o.updateWorldMatrix(true,false);
+  center.setFromMatrixPosition(o.matrixWorld);
+  radius=o.isLight?3:1.5;
+ }else{
+  const sphere=box.getBoundingSphere(new T.Sphere());
+  center.copy(sphere.center);
+  radius=sphere.radius;
+ }
+ const fov=this.camera.isPerspectiveCamera?this.camera.fov:50;
+ /* 半径 r 的包围球刚好填满竖直视野需要 d = r / sin(fov/2)，再留 20% 余量，
+    免得相机贴在物体表面、近裁剪面切掉一半。 */
+ const ideal=Math.max(radius/Math.max(Math.sin(fov*Math.PI/360),0.05)*1.2,1e-3);
+ let dist=ideal;
+ /* 相机 near 经常比「一栋楼」还大（本项目 near=1、整模型 2 单位）。贴到 0.4 会把整个取景框
+    埋进近裁剪面，画面变成贴脸看地面。先按 near 夹住，保证物体不被裁；autoNear 打开时
+    再临时压低 near，换回理想取景距离。 */
+ const cam=this.camera;
+ const canAdjustNear=!!(this.autoNear&&cam.isPerspectiveCamera&&cam.near>0);
+ if(canAdjustNear&&ideal<cam.near*1.25){
+  const want=Math.max(ideal*0.05,1e-4);
+  if(want<cam.near){
+   this._restoreNear(true);
+   this._nearSaved={camera:cam,near:cam.near,center:center.clone()};
+   cam.near=want;
+   cam.updateProjectionMatrix();
+  }
+ }
+ /* 兜底：near 压不下去（已经是极小值）时只能停在 near 外，至少别让物体被裁掉 */
+ if(cam.isPerspectiveCamera&&cam.near>0&&dist<cam.near*1.25)dist=cam.near*1.25;
+ const dir=this.camera.position.clone().sub(center);
+ if(dir.lengthSq()<1e-8)dir.set(0.6,0.45,1);   /* 相机正好在中心时给个默认斜角 */
+ const toPos=center.clone().add(dir.normalize().multiplyScalar(dist));
+ const fromPos=this.camera.position.clone();
+ const fromTarget=this.controls&&this.controls.target?this.controls.target.clone():null;
+ this._stopFocus();
+ const duration=Number.isFinite(opts.duration)?opts.duration:this.focusDuration;
+ const canFly=opts.instant!==true&&duration>0&&typeof requestAnimationFrame==='function';
+ if(!canFly){
+  this._applyFocus(toPos,center);
+  return this;
+ }
+ const t0=typeof performance!=='undefined'?performance.now():Date.now();
+ const ease=x=>x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+ const step=now=>{
+  if(this.destroyed){this._focusRaf=null;return;}
+  const k=Math.min(1,Math.max(0,(now-t0)/duration));
+  const e=ease(k);
+  const pos=fromPos.clone().lerp(toPos,e);
+  const look=fromTarget?fromTarget.clone().lerp(center,e):center.clone();
+  this._applyFocus(pos,look);
+  this._focusRaf=k<1?requestAnimationFrame(step):null;
+ };
+ this._focusRaf=requestAnimationFrame(step);
+ return this;
+}
+/* 相机就位：位置 + controls.target + lookAt 必须一起写，否则 OrbitControls 下一帧会把相机拽回去 */
+_applyFocus(pos,target){
+ this.camera.position.copy(pos);
+ if(this.controls&&this.controls.target){
+  this.controls.target.copy(target);
   if(this.controls.update)this.controls.update();
  }
  this.camera.lookAt(target);
  this.camera.updateMatrixWorld();
- return this;
 }
+_stopFocus(){
+ if(this._focusRaf!=null&&typeof cancelAnimationFrame==='function')cancelAnimationFrame(this._focusRaf);
+ this._focusRaf=null;
+}
+/* 相机离目标拉远后把 near 还回去：压低 near + 大 far 会啃深度精度，不能长期留着。 */
+_restoreNear(force){
+ const s=this._nearSaved;
+ if(!s)return;
+ const cam=this.camera;
+ if(!force&&cam&&cam.position.distanceTo(s.center)<=s.near*3)return;
+ if(cam&&cam.near!==s.near){cam.near=s.near;cam.updateProjectionMatrix();}
+ this._nearSaved=null;
+}
+setAutoNear(on){this.assert();this.autoNear=!!on;return this;}
+setFocusOnSelect(on){this.assert();this.focusOnSelect=!!on;return this;}
+setFocusDuration(ms){this.assert();if(!Number.isFinite(ms)||ms<0)throw Error('Invalid focus duration');this.focusDuration=ms;return this;}
 
 /* -------- 选中与拖拽 -------- */
  setPicking(on){
@@ -3435,6 +4160,8 @@ focusObject(id){
    if(api.length)lines.push('','```js',...api,'```');
    lines.push('');
   }
+  const plan=this.exportComposerPlan();
+  if(plan)lines.push(plan,'');
   const rev=this.THREE&&this.THREE.REVISION||'?';
   lines.push('---','由 three-scene-debugger '+VERSION+' 导出（Three r'+rev+'，场景 '+(this.scene.name||'Scene')+'）。代码里的 tsd 指调试器实例（window.__tsd）；代码块可直接执行，也可交给 agent 逐块应用。');
   return lines.join('\n');
@@ -3536,7 +4263,7 @@ focusObject(id){
  undo(id){this.assert();this.tracker.undo(id);const t=this.inspector.byObject.get(this.scene);for(const key of [...t.fields.keys()])if(key.startsWith('fog.'))t.fields.delete(key);if(this.scene.fog){this.inspector.field(t,'fog.color','color');for(const k of this.scene.fog.isFog?['near','far']:['density'])this.inspector.field(t,'fog.'+k);}this.ui.changes();}
  clearChanges(){this.assert();this.tracker.clear();this.ui.changes();}
  registerResource(resource){this.assert();if(!resource?.uuid||!resource.isTexture&&!resource.isMaterial)throw Error('Expected Texture/Material');this.inspector.resources.set(resource.uuid,resource);this.ui.inspect();return resource;}
- registerPostProcessing(composer){this.assert();if(!composer||!Array.isArray(composer.passes))throw Error('Expected composer.passes');this.inspector.extras=this.inspector.extras.filter(e=>e.locator.kind!=='pass');composer.passes.forEach((p,i)=>this.inspector.extras.push({object:p,id:'pass:'+i,label:'Pass '+i+' '+p.constructor.name,expr:'composer.passes['+i+']',locator:{kind:'pass',index:i}}));this.inspector.rebuild();this.ui.refresh();return this;}
+ registerPostProcessing(composer){this.assert();if(!composer||!Array.isArray(composer.passes))throw Error('Expected composer.passes');this.postfx.attachComposer(composer);this.inspector.extras=this.inspector.extras.filter(e=>e.locator.kind!=='pass');composer.passes.forEach((p,i)=>this.inspector.extras.push({object:p,id:'pass:'+i,label:'Pass '+i+' '+p.constructor.name,expr:'composer.passes['+i+']',locator:{kind:'pass',index:i}}));this.inspector.rebuild();this.ui.refresh();if(this.ui.postfxStatus)this.ui.postfxStatus();return this;}
  registerAnimationMixer(mixer,actions){this.assert();if(!mixer)throw Error('Expected AnimationMixer');const index=this.inspector.extras.filter(e=>e.locator.kind==='mixer').length;this.inspector.extras.push({object:mixer,id:'mixer:'+index,label:'AnimationMixer '+index,expr:'mixers['+index+']',locator:{kind:'mixer',index}});const list=actions||mixer._actions||[];list.forEach((a,i)=>this.inspector.extras.push({object:a,id:'action:'+index+':'+i,label:'Action '+index+':'+i,expr:'actions['+index+']['+i+']',locator:{kind:'action',mixer:index,index:i}}));this.inspector.rebuild();this.ui.refresh();return this;}
  exportSnapshot(){this.assert();return this.tracker.snapshot();}
  locate(loc,id){let t=this.inspector.targets.get(id);if(t)return t; // UUID is stable within the same scene; named fallback only when unique.
@@ -3557,7 +4284,7 @@ focusObject(id){
  exportFullSceneJSON(){this.assert();return this.scene.toJSON();}
  saveSnapshot(name='manual'){this.assert();if(!this.storage)throw Error('Storage unavailable');this.storage.setItem(PREFIX+String(name),JSON.stringify(this.exportSnapshot()));return PREFIX+String(name);}
  loadSavedSnapshot(name='manual'){this.assert();if(!this.storage)throw Error('Storage unavailable');const v=this.storage.getItem(PREFIX+String(name));if(v===null)throw Error('Saved snapshot not found');return this.loadSnapshot(v);}
- destroy(options={}){let storageError=null;try{if(options.clearStorage&&this.storage){for(let i=this.storage.length-1;i>=0;i--){const k=this.storage.key(i);if(k?.startsWith(PREFIX))this.storage.removeItem(k);}}}catch(e){storageError=e;}if(this.destroyed){if(storageError)throw storageError;return;}this.destroyed=true;liveInstances--;if(liveInstances===0&&globalRoot&&globalRoot.ThreeSceneDebugger===publicApi)delete globalRoot.ThreeSceneDebugger;this.performance.stop();if(this.selection)this.selection.destroy();if(this.lightHelpers)this.lightHelpers.destroy();if(this.postfx)this.postfx.destroy();if(this.helpers){for(const k of ['grid','axes']){const h=this.helpers[k];if(h){try{this.scene&&this.scene.remove(h);}catch(e){}try{h.geometry&&h.geometry.dispose();}catch(e){}try{if(Array.isArray(h.material))h.material.forEach(m=>m.dispose());else if(h.material)h.material.dispose();}catch(e){}}}}if(this.envLib)this.envLib.destroy();if(this.assets)this.assets.dispose();if(this.textures)this.textures.dispose();this.ui.destroy();this.tree.clear();this.inspector.clear();this.tracker.clear();this.tracker.d=null;this.warnings.clear();for(const k of ['scene','camera','renderer','controls','THREE','ui','tree','inspector','tracker','performance','selection','lightHelpers','envLib','assets','textures','postfx','helpers','handlers'])this[k]=null; // storage retained solely for repeat destroy({clearStorage:true}); no scene or DOM references.
+ destroy(options={}){let storageError=null;try{if(options.clearStorage&&this.storage){for(let i=this.storage.length-1;i>=0;i--){const k=this.storage.key(i);if(k?.startsWith(PREFIX))this.storage.removeItem(k);}}}catch(e){storageError=e;}if(this.destroyed){if(storageError)throw storageError;return;}this.destroyed=true;liveInstances--;this._restoreNear(true);if(this._focusRaf!=null&&typeof cancelAnimationFrame==='function')cancelAnimationFrame(this._focusRaf);this._focusRaf=null;if(liveInstances===0&&globalRoot&&globalRoot.ThreeSceneDebugger===publicApi)delete globalRoot.ThreeSceneDebugger;this.performance.stop();if(this.selection)this.selection.destroy();if(this.lightHelpers)this.lightHelpers.destroy();if(this.postfx)this.postfx.destroy();if(this.helpers){for(const k of ['grid','axes']){const h=this.helpers[k];if(h){try{this.scene&&this.scene.remove(h);}catch(e){}try{h.geometry&&h.geometry.dispose();}catch(e){}try{if(Array.isArray(h.material))h.material.forEach(m=>m.dispose());else if(h.material)h.material.dispose();}catch(e){}}}}if(this.envLib)this.envLib.destroy();if(this.assets)this.assets.dispose();if(this.textures)this.textures.dispose();this.ui.destroy();this.tree.clear();this.inspector.clear();this.tracker.clear();this.tracker.d=null;this.warnings.clear();for(const k of ['scene','camera','renderer','controls','THREE','ui','tree','inspector','tracker','performance','selection','lightHelpers','envLib','assets','textures','postfx','helpers','handlers'])this[k]=null; // storage retained solely for repeat destroy({clearStorage:true}); no scene or DOM references.
  if(storageError)throw storageError;
  }
 }

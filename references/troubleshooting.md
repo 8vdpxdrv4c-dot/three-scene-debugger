@@ -66,15 +66,28 @@ renderer.shadowMap.needsUpdate = true;
 
 ## 后期处理：黑屏 / 画面发白 / 没有泛光
 
-1. **整屏黑**：先看 `renderer.getRenderTarget()`。调试器检测到宿主正渲染到自己的 RT 时会直接转调原函数（否则会把中间结果画到屏幕），如果宿主那条路径本身没画东西，你看到的就是宿主的画面，不是调试器的锅。
-2. **只有一层纯色**：多半是合成通道的 `#include <colorspace_fragment>` 被改动或 `toneMapped` 被设成 false，导致线性值直接进屏幕。合成通道必须 `toneMapped: true`，阈值/模糊通道必须 `false`。
-3. **画面发白或发灰**：双重色调映射。宿主自己接了 `EffectComposer` 并在末尾又做了一次 toneMapping/encoding 时，把调试器的 `enabled` 关掉，或删掉其中一层。
-4. **没有泛光**：`bloom.threshold` 是**线性 HDR 亮度**，不是 sRGB 0–1。场景里没有超过阈值的像素就不会有泛光；先把阈值压到 0.2–0.4 验证链路，再按需要调回去。
-5. **泛光过糊**：`bloom.radius` 控制参与合成的模糊层跨度，配合 `bloom.strength` 一起降；只降 strength 会得到「很淡但很糊」的结果。
-6. **WebGL1 边缘很硬**：4x MSAA 走 `samples: 4`，只在 WebGL2 可用。没有 MSAA 时只能靠提高 `pixelRatioCap` 或后处理锐化补偿。
-7. **HDR 泛光发平**：`HalfFloatType` 需要 `EXT_color_buffer_float` / `EXT_color_buffer_half_float`。都拿不到时 RT 退回 8 位，超过 1.0 的亮度在 RT 里已被截断，泛光自然没有层次。
-8. **draw call 突然变成 1**：你读的是 `renderer.info.render`。开启后期后它只统计最后那趟合成，用 `getStats()` 取内部保存的场景那一趟。
-9. 不要改回 `copyFramebufferToTexture` 抓帧的方案。实测 r160 + WebGL2 + SwiftShader 下，该调用在真实渲染回调内持续报 `GL_INVALID_VALUE: glCopyTexSubImage2D: Offset overflows texture dimensions`，同一调用在渲染回调外却返回 0——不稳定且无法可靠规避。
+1. **整屏黑**：先看 `tsd.composerInfo()`。
+   - `mode:'attach'/'inject'` 且 `linearOutput:false`：编码 pass 没认出来，pass 插到了链末，画面被「线性值直接上屏」或双重编码。把插到的位置和 `passes` 列表核对一遍。
+   - `mode:'off'` 且宿主有 composer：调试器在「已有多个 pass」的链上没注册（宿主没调 `registerPostProcessing`），此时自建链路的合成不会进 composer。
+2. **「后期处理」页签怎么调都不变**：先看 `tsd.postfx.state.enabled`，再 `composerInfo().mode`。
+   - `enabled === false`：0.9.1 及之前这是默认值，整个页签都被它挡住（`镜头与风格` 尤其明显）。0.9.2 起拖任意滑块会自动打开；还不动就手动勾上。
+   - `mode === 'off'`：宿主有 composer 但没注册，自建链路的合成进不去，画面当然不变。
+   - `attach` 下再看宿主 Bloom pass 的 `enabled`（`tsd.postfx.hostBloom.enabled`）：宿主自己每帧写回 false 时，Bloom 三项也会被覆盖。
+   - `attach` + 只改了调色/暗角/色差这类附加项时，确认 `composerPass.enabled === true`（`extrasActive()` 非中性才会置真）。
+3. **虚化勾了没反应**：先 `tsd.bokehInfo()` 看 `available`。`false` 表示没注入 `bokehPass: BokehPass`（技能不自行 import addon）。`available:true` 但 `index === -1` 说明 pass 没在链上——看 `state.bokeh.enabled` 与 `composerMode`；无 composer 时还必须 `state.enabled === true`。
+4. **虚化一开整屏一样糊、没有景深层次**：`aperture` 太大（撞 `maxblur` 上限）。`dofblur = clamp((focus - depth) * aperture, ±maxblur)`，深度是世界单位；three 默认 `0.025` 只适合「场景约 1 单位」。把 `aperture` 降一个数量级，或直接点「对焦到观察中心 / 选中物体」重算。
+5. **虚化开了却几乎看不出**：`aperture` 太小（本项目若按包围盒半径归一会算出 0.0007）。同时确认 `maxblur` 不是 0、`focus` 不在画面之外；宿主已有景深 pass 时两层叠加也会互相抵消视觉判断，先关掉宿主那层。
+6. **勾虚化后画面撕裂 / 只有一半**：深度 RT 停在 1×1。晚插进 composer 的 pass 必须自己 `pass.setSize(composer.renderTarget1.width, height)`，面板已处理；自己写接入代码时别忘了。
+3. **只有一层纯色**：多半是合成通道的 `#include <colorspace_fragment>` 被改动或 `toneMapped` 被设成 false，导致线性值直接进屏幕。**上屏**的合成通道必须 `toneMapped: true`；**插进 composer** 的必须用 `compositeLinear`（两者都在 `material()` 里，别混）。
+4. **画面发白或发灰**：双重色调映射/编码。占位顺序应是「TsdPostFXPass → OutputPass / GammaCorrection」。`SharpPass(GammaCorrectionShader)` 的类名是 `ShaderPass`，按类名找会漏，代码里还看片元有没有 `colorspace_fragment`。
+5. **没有泛光**：`bloom.threshold` 是**线性 HDR 亮度**，不是 sRGB 0–1。场景里没有超过阈值的像素就不会有泛光；先把阈值压到 0.2–0.4 验证链路，再按需要调回去。暗场景 `inject` 的默认阈值 0.35 仍可能偏弱，继续降到 0.15–0.3。
+6. **泛光过糊**：`bloom.radius` 控制各级模糊层的权重跨度，配合 `bloom.strength` 一起降；只降 strength 会得到「很淡但很糊」的结果。接管模式下它写的是宿主 pass 的 `radius`，语义由宿主实现决定。
+7. **WebGL1 边缘很硬**：4x MSAA 走 `samples: 4`，只在 WebGL2 可用。没有 MSAA 时只能靠提高 `pixelRatioCap` 或后处理锐化补偿。
+8. **HDR 泛光发平**：`HalfFloatType` 需要 `EXT_color_buffer_float` / `EXT_color_buffer_half_float`。都拿不到时 RT 退回 8 位，超过 1.0 的亮度在 RT 里已被截断，泛光自然没有层次。
+9. **draw call 突然变成 1**：你读的是 `renderer.info.render`。开启后期后它只统计最后那趟合成，用 `getStats()` 取内部保存的场景那一趟。
+10. **线框/法线视图在 composer 场景里没反应**：这是已知限制，视图靠 `scene.overrideMaterial` 在 patch 里生效，而 `RenderPass` 渲染时目标已绑定、patch 整趟让路。要看视图请在无 composer 的场景，或临时绕过 composer。
+11. 不要改回 `copyFramebufferToTexture` 抓帧的方案。实测 r160 + WebGL2 + SwiftShader 下，该调用在真实渲染回调内持续报 `GL_INVALID_VALUE: glCopyTexSubImage2D: Offset overflows texture dimensions`，同一调用在渲染回调外却返回 0——不稳定且无法可靠规避。
+12. 也不要在 composer 链路里 patch 内联合成：MSAA + HalfFloat 中间目标未 resolve 就被下游采样，画面会塌成只剩自发光。往 composer 加东西只能实现 pass 协议。
 
 ## 点选不到 / 点到光源而不是物体
 

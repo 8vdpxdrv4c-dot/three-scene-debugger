@@ -1,8 +1,10 @@
 ---
 name: three-scene-debugger
 description: >-
-  当用户要求调试现有 Three.js 场景、运行时场景树、材质纹理/灯光阴影/相机与 OrbitControls
-  调参、泛光等后期处理、环境贴图与天空盒、程序化贴图（基础色/法线/粗糙度）、配置快照或调参代码导出、调试器卸载，或提到
+  当用户要求调试现有 Three.js 场景、运行时场景树、材质纹理/灯光阴影/相机与 OrbitControls 调参、
+  泛光等后期处理、环境贴图与天空盒、程序化贴图（基础色/法线/粗糙度）、FPS/draw call/三角形/显存等运行时性能检查、
+  点选与拖拽手柄（TransformControls）/加光源/克隆/删除/聚焦/截图、配置快照或调参代码导出、调试器卸载，
+  或在单页 HTML/静态 demo/本地 three.js 页面里做上述调试，或提到
   three-scene-debugger、createSceneDebugger、调试面板、3D场景调试大师 时使用。
 ---
 # Three Scene Debugger
@@ -16,6 +18,9 @@ description: >-
 - 用户想要不依赖图片文件的贴图（木纹/砖墙/石材/皮革/织物等），需要同时有基础色与法线，能直接贴到材质上。
 - 用户提到 `three-scene-debugger`、`createSceneDebugger`、“调试面板”“配置快照”“导出调参代码”“卸载调试器”。
 - 在已存在的渲染循环中调参，需要保留可审计、可撤销的改动，且不想重写应用架构。
+- 用户抱怨卡顿、掉帧，想看 FPS、draw call、三角形数或纹理/几何内存占用。
+- 用户想在页面上点选物体、拖拽变换手柄，或要加光源、克隆/删除/聚焦对象、截图与查看统计。
+- 宿主是一个单页 HTML、静态 demo 或没有构建工具的本地 three.js 页面，希望直接加个调试面板而不改架构。
 
 ## 何时不使用
 
@@ -86,7 +91,7 @@ if (import.meta.env.DEV) {
 | ChangeTracker | 深拷贝 old/new、对象分组、逐条冲突检测撤销、清空记录、精简 JSON/赋值代码 |
 | PerformanceMonitor | 可选 tick 的真实渲染 FPS；renderer.info calls/triangles；缓存资源内存估算 |
 | UILayer | 内嵌原生 DOM/ShadowRoot；左上角常驻红色入口按钮「3D场景调试大师」（fixed、最高 z-index），面板标题栏可拖拽，双击标题栏回默认位置；无需 Tweakpane/lil-gui；本地输出、导入、复制、显式存储 |
-| PostFX（0.5.0） | 自研离屏后期链路：Bloom / 调色 / 暗角 / 色差 / 颗粒 / 锐化 / 描边 / 像素化，外加线框/法线/剪影调试视图；零 addon 依赖 |
+| PostFX（0.9.0） | Bloom / 调色 / 暗角 / 色差 / 颗粒 / 锐化 / 描边 / 像素化 + 线框/法线/剪影视图；**有 `EffectComposer` 时接管已有 Bloom pass 或插入自己的 pass**，没有才走自研离屏链路；零 addon 依赖 |
 | UILayer（0.6.0） | 宽度拖拽条（宽度记忆）、快捷工具条、自绘滑块 + 可键入数字框、字段名横向拖拽改值、属性筛选、手柄模式按钮；细节见 [面板交互](references/ui.md) |
 | AssetLibrary（0.5.0） | CC0 HDR 天空盒 + PBR 贴图，清单驱动、懒加载；缺素材时自动降级为程序化环境 |
 | TextureStudio（0.8.0） | 12 套**程序化**材质贴图（零图片文件、零网络）：同一生成器出基础色 / 法线 / 粗糙度，方形无缝平铺；面板抽屉可预览、选通道、调平铺与尺寸；写入材质槽位、可撤销、可导出 |
@@ -107,9 +112,10 @@ if (import.meta.env.DEV) {
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 sceneDebug = createSceneDebugger({
   scene, camera, renderer, THREE, controls,
-  transformControls: TransformControls,   // 可选：不传则只有选中高亮，没有拖拽
+  transformControls: TransformControls,   // 可选：不传则只有选中高亮，没有拖拽；r169+ 内部用 getHelper()，旧版直接用对象本身
   lightHelpers: true,                     // 默认 true，为每个光源挂 helper
   assets: './assets/',                    // 可选：HDR 天空盒 + PBR 贴图素材库
+  autoNear: true,                         // 可选：聚焦比相机 near 还小的物体时临时压低 near（默认 false，不动宿主相机）
   postfx: { enabled: false },             // 可选：覆盖后期默认值
   onSelect: obj => {}, onDeselect: () => {}, onToggle: open => {},
   onTransformStart: obj => {}, onTransform: obj => {}, onTransformEnd: obj => {},
@@ -118,12 +124,14 @@ sceneDebug = createSceneDebugger({
 
 | 能力 | API |
 |---|---|
-| 点选 / 高亮 / Esc 取消 | `setPicking(bool)`、`selectObject(objOrId)`、`getSelected()`、`clearSelection()` |
+| 点选 / 高亮 / Esc 取消 | `setPicking(bool)`、`selectObject(objOrId)`、`getSelected()`、`clearSelection()`；**点场景树的一行 = 选中该对象 + 相机飞过去取景**，行会高亮 |
+| 聚焦取景 | `focusObject(id, {instant, duration})`、`setFocusOnSelect(bool)`、`setFocusDuration(ms)`、`setAutoNear(bool)`；目标比相机 `near` 还小时自动临时压低 near，镜头拉远自动还原 |
 | 拖拽模式 | `setTransformMode('translate'|'rotate'|'scale')`、`getTransformMode()`、`getGizmo()`；画布上 W/E/R 快捷键 |
 | 编辑器动作 | `addLight(type, opts)`、`cloneObject(id)`、`removeObject(id)`、`focusObject(id)`、`setGridHelper(bool)`、`setAxesHelper(bool)`、`screenshot()`、`downloadScreenshot()`、`getStats()` |
 | 光源辅助 | `setLightHelpers(bool)`、`setShadowHelpers(bool)`；helper 标 `userData.tsdIgnore`，不进场景树但可点选 |
 | 环境贴图 | `setEnvironment('hdr:<id>'|'studio'|'sunset'|'night'|'white'|'gray'|'none')`、`setEnvBackground(bool)`、`getEnvironment()`；HDR 来自素材库，程序化预设零外部文件 |
-| 后期处理 | `setPostFX(path, value)`、`getPostFX(path?)`、`previewPostFX(path, value)`、`resetPostFX()`、`setViewMode('final'|'wireframe'|'normal'|'flat')`、`exportPostFXMarkdown()` |
+| 后期处理 | `setPostFX(path, value)`、`getPostFX(path?)`、`previewPostFX(path, value)`、`resetPostFX()`、`setViewMode('final'|'wireframe'|'normal'|'flat')`、`exportPostFXMarkdown()`、`composerInfo()`（接管状态：mode / bloomIndex / helperIndex / linearOutput / bokeh） |
+| 虚化（BokehPass） | `setPostFX('bokeh.enabled'|'bokeh.focus'|'bokeh.aperture'|'bokeh.maxblur', v)`、`focusBokeh()`（对焦到观察中心 / 选中物体）、`bokehInfo()`；需要宿主注入 `bokehPass: BokehPass` |
 | 素材贴图 | `applyAssetTexture(targetId, path, assetId, kind, opts)`，`kind` = `diff`/`nor`/`rough`/`arm`；`opts.index` 材质数组下标 |
 | 自制贴图库 | `listTexturePresets()`、`presetTexture(id, kind, size)`、`applyTexturePreset(targetId, presetId, {slots, kind, size, repeat, index})`、`materialTarget(id, slot, index)` |
 | 材质切换 | `setMaterial(id, type, opts)`、`getMaterialTypes(id?)`、`materialUsers(material)`；`opts.slot` 材质数组下标、`opts.copy:false` 不搬参数、`opts.spread:true` 同步共用该材质的对象、`opts.force:true` 同类型也重建 |
@@ -141,18 +149,53 @@ sceneDebug = createSceneDebugger({
 
 ## 后期处理
 
-0.5.0 自带一条后期链路，**不依赖 `EffectComposer`**（避免打包进第二份 Three）。渲染路径是：场景先画到离屏 `WebGLRenderTarget`（HalfFloat 可选、4x MSAA）→ 阈值提取 → 4 级高斯模糊 → 合成着色器（Bloom + 调色 + 暗角 + 色差 + 颗粒 + 锐化 + 描边 + 像素化）。合成通道 `toneMapped: true` + `#include <colorspace_fragment>`，色调映射与色彩空间交给宿主的 `renderer`，不自己造 ACES。
+0.9.0 起分三条路，**先看场景有没有后期：有就接管，没有才自建**。
+
+| 场景状态 | 面板「后期处理」页签做什么 | 关掉「接管」会怎样 |
+|---|---|---|
+| 有 `EffectComposer` + Bloom pass（`UnrealBloomPass` 或同字段的自定义 pass） | **接管**（默认就处于接管态）：`strength`/`radius`/`threshold` 直连该 pass，`Bloom 开关` = 它的 `enabled`；调色/暗角等另插一条 `TsdPostFXPass` 在编码 pass 之前 | 完全交还宿主：Bloom 的开关与强度/半径/阈值一起还原成接管前的值 |
+| 有 `EffectComposer`、没有 Bloom | **插入**：勾选「启用后期处理」往 composer 的编码 pass 前塞一条 `TsdPostFXPass`，整条链路（Bloom + 调色 + 暗角…）由它画 | pass `enabled = false`，画面回到宿主原样 |
+| 没有 `EffectComposer` | 走内置离屏链路（0.5.0 那套），patch `renderer.render` | 直接转调原 `renderer.render`，零开销 |
 
 ```js
-sceneDebug.setPostFX('enabled', true);
-sceneDebug.setPostFX('bloom.threshold', 1.05);   // 线性 HDR 空间：1.0 = 白点以上
-sceneDebug.setPostFX('bloom.strength', 0.8);
-sceneDebug.setPostFX('vignette.amount', 0.35);
+sceneDebug.composerInfo();   // {mode:'attach'|'inject'|'off', bloomPass, bloomIndex, helperIndex, linearOutput}
+sceneDebug.setPostFX('enabled', true);        // 接管 / 启用后期
+sceneDebug.setPostFX('bloom.enabled', false); // 关掉场景真实存在的泛光
+sceneDebug.setPostFX('bloom.threshold', 1.05); // 线性 HDR 空间：1.0 = 白点以上
 ```
 
-- `enabled === false` 时直接转调原 `renderer.render`，零额外开销、零 draw call。
-- 阈值不是 sRGB 0–1：`1.0` 表示「比白点更亮」，想让所有东西发光就压到 0.2–0.4。参数全表、性能取舍与历史坑见 [后期处理](references/postfx.md)。
+- 注册方式不变：`registerPostProcessing(composer)`。不调用也会用 `options.composer` 或 `window.composer` / `finalComposer` / `effectComposer` 兜底探测（形状对得上才认）。
+- **插进 composer 的 pass 必须输出线性值**：`TsdPostFXPass` 用 `compositeLinear` 变体（去掉 tone mapping 与 `colorspace_fragment`），编码交给链末 OutputPass / GammaCorrectionShader。反了就是「一开后期暗部全黑、只剩自发光」。
+- 认编码 pass 不能只看类名：`ShaderPass(GammaCorrectionShader)` 的类名只剩 `ShaderPass`，还要看片元里有没有 `colorspace_fragment` / `sRGBTransferOETF`。认错位置会双重编码，画面整体发灰发白。
+- 接管时参数是**从宿主读进来的**，所以勾「接管」画面不会跳；`resetPostFX()` 回到接管瞬间那组值，而不是硬编码默认值。
+- 没有 Bloom 的场景默认给 `threshold 0.35 / strength 1.2`。阈值是线性 HDR 亮度，`1.0` 只让白点以上发光，暗场景（室内/夜景）开了会像没开，这时降到 `0.15–0.3`。
+- **不再 patch `renderer.render` 去合成**：0.8.4 试过内联（渲进自己的 RT、写回宿主目标），在 MSAA + HalfFloat 中间目标上画面塌成黑屏，已回滚。composer 场景一律走插入 pass。
+- 导出的修改提示词（底部大按钮 / `exportPostFXMarkdown()`）会带一节「后期链路（EffectComposer）」：pass 顺序、接管的是第几个 pass、附加 pass 该插在第几位、目标参数与编码约束。
 - 开启后期后 `renderer.info.render` 只统计最后那趟合成，`getStats()` 已改用内部保存的场景那一趟数字，draw call 不会突然掉到 1。
+- **总开关的默认值按模式走**：`attach` 注册完就是 `enabled === true`（参数是从宿主读来的，画面不会变，等于「接管」这件事本身）；`inject` 与无 composer 场景默认 `false`，避免页面一加载就被套上一层泛光、把基线改掉。
+- **拖任意后期参数会自动打开总开关**（`ensureActive`）：`enabled === false` 时滑块能拖、数字在动、画面完全不动，是最糟的反馈。0.9.1 及之前 `attach` 默认关闭，`镜头与风格`（色差/颗粒/锐化/描边/像素化）全部被这层开关挡住，而 Bloom 三项因为直写宿主 pass 反而"能用"，于是表现得半好半坏。现在关着也能拖，拖哪个就自动接管。
+- 关闭接管时 `applyComposer()` 连 `strength/radius/threshold` 一起还原，不是只还 `enabled`——否则 A/B 对比看到的是「宿主开关 + 面板强度」的混合体，不是宿主原样。
+
+### 虚化通道（BokehPass）
+
+面板里「虚化 · BokehPass 景深」是一组**独立通道**，默认关闭，不看后期总开关（无 composer 的离屏链路除外，那条路必须先启用后期）。
+
+```js
+createSceneDebugger({ ..., bokehPass: BokehPass });   // 必须注入：技能内不 import addon
+tsd.setPostFX('bokeh.enabled', true);                 // 插 pass，默认参数按当前机位算
+tsd.setPostFX('bokeh.focus', 5.34);                   // 世界单位的对焦距离
+tsd.focusBokeh();                                     // 一键对焦到观察中心 / 选中物体
+tsd.bokehInfo();                                      // {available, enabled, params, index, hostDof, mode}
+```
+
+- **注入原因**：`three/examples/jsm` 是 ESM addon，技能里 import 会把第二份 `three` 打进包（两套 `WebGLRenderTarget` / 常量互不认账）。所以和 `transformControls` 一样由宿主注入构造函数。
+- 插入位置：`composer.passes` 里「附加调色 pass（`TsdPostFXPass`）、编码 pass」之前——即宿主 Bloom 之后。位置由 `indexOf` 动态算，不写死下标。
+- 关闭 = `passes.splice(index,1)` + `pass.enabled=false`，**画面与没开过一致**，中间目标（`bokehRT`）也一起 dispose；`resetPostFX()` / `destroy()` 走同一条路。不要只用 `focus` 调远来「关」——深度 pass 仍在跑，开销不变。
+- 摘除后**再勾开必须显式 `pass.enabled = true`**：`EffectComposer` 会跳过 `enabled === false` 的 pass，实例明明在链上却不渲染，表现就是「第二次开启没效果、再取消也没效果」（0.10.1 修）。`bokehInfo()` 因此分两个字段：`enabled` 是用户意图，`active` 是「此刻真的在出画面」；两者不一致时状态条直接提示。
+- 参数默认值按机位算，不是 three 的默认 0.025：`focus = 相机到观察中心`，`aperture = maxblur / (0.5 × focus)`。原因是 `dofblur = clamp((focus - depth) * aperture, ±maxblur)` 里的 depth 是世界单位，而 three 默认值是给「场景约 1 单位」调的。本项目整场景 2 单位、相机在 5.3 外，照搬 0.025 会整屏一秒撞到 maxblur，看起来「糊成一片、没有层次」。**也不要用场景包围盒半径归一**：地面 + 天空球会把半径撑到 28.6，算出的光圈小到看不见。
+- 首次勾开时若用户没手动调过参数，会按**当下机位**重算一次（composer 注册往往早于相机就位，`/detail` 实测注册时 focus=1、勾开时实际 13）。手调过就保留用户值。
+- 每帧成本 = 一次全场景 `MeshDepthMaterial` 深度渲染（draw call 约翻倍）。宿主 composer 里已有景深 pass（如 `LizeDepthOfFieldPass`）时状态条会点名提醒，两层 DOF 叠加会互相糊。
+- 导出：`exportPostFXMarkdown()` 在开启时会附一节「虚化通道（BokehPass 景深）」，写明装什么包、`import` 路径、插到 `composer.passes[n]`、当前四个参数（focus/aperture 保留 4 位小数）以及两种关闭写法。
 
 ## 素材库
 
@@ -234,7 +277,7 @@ destroy 幂等；清理本实例 DOM、监听、RAF、缓存、场景/renderer/�
 11. FPS 只来自用户 tick，独立 RAF 只刷新面板；renderer.info 是当前引擎统计，内存是缓存范围估算，不能假冒精确显存。
 12. 不强依赖后处理/动画插件，不执行任意第三方代码，不自动加载网络资产，不擅自 dispose 用户资源。
 12b. 编辑器层（点选、gizmo、light helper、环境贴图）必须可逐项关闭，且不得接管或新增宿主 render 循环；`TransformControls` 只能由宿主注入。
-12c. 后期链路只 patch `renderer.render`，不新增 RAF、不改宿主的 `toneMapping`/`outputColorSpace`；`enabled` 关闭时必须原样转调，保持零开销。禁止改回 `copyFramebufferToTexture` 抓帧方案（在 r160 + WebGL2 下帧内调用不稳定）。
+12c. 后期链路：没有 composer 时只 patch `renderer.render`，不新增 RAF、不改宿主的 `toneMapping`/`outputColorSpace`；`enabled` 关闭时必须原样转调，保持零开销。有 composer 时**禁止再 patch 渲染路径做内联合成**（MSAA 中间目标会塌），只能用实现 pass 协议、插进 `composer.passes` 的方式，且必须输出线性值。禁止改回 `copyFramebufferToTexture` 抓帧方案（在 r160 + WebGL2 下帧内调用不稳定）。
 12d. 拾取必须先过滤 `visible === false`，并让真实几何优先于光源/阴影 helper 代理；这两条是修过的真实缺陷，别为了“少一次遍历”删掉。
 13. 所有持久化 opt-in，键统一 tsd:snapshot:*；destroy 可重复、安全清理，多实例不互相删 DOM/监听/全局引用。
 14. 用户需要保留改动时先导出；不自动写源码、不自动发布 npm、不自动上传快照/完整场景。
