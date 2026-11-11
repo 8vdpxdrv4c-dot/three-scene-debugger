@@ -6,6 +6,9 @@ description: >-
   点选与拖拽手柄（TransformControls）/加光源/克隆/删除/聚焦/截图、配置快照或调参代码导出、调试器卸载，
   或在单页 HTML/静态 demo/本地 three.js 页面里做上述调试，或提到
   three-scene-debugger、createSceneDebugger、调试面板、3D场景调试大师 时使用。
+  用户说「给我启动 3D 场景调试」「启用 3D 场景调试」「开启 3D 场景调试」「关闭/卸载 3D 场景调试」
+  这类口令，或要求把调试面板接进当前项目、检查是否已接入时，同样使用。
+  用户说「给我安装这个技能」「安装 three-scene-debugger」时也使用（见「提示词安装」）。
 ---
 # Three Scene Debugger
 
@@ -58,6 +61,84 @@ const sceneDebug = ThreeSceneDebugger.createSceneDebugger({ scene, camera, rende
 ```
 
 ESM 与 UMD 是不同格式；UMD 源不能同时提供原生命名导出。`node scripts/build.cjs` 从同一核心生成 `dist/three-scene-debugger.mjs` 与 UMD 副本。不是“给 UMD 改扩展名当 ESM”。
+
+## 提示词安装（用户说一句话就装）
+
+用户不必记命令。下列说法都是「把这个 Skill 复制到某个 Agent 的技能目录」，由你代跑安装器。
+
+| 用户说法 | 意图 | 动作 |
+|---|---|---|
+| 给我安装这个技能 / 安装 three-scene-debugger / 装一下这个技能 | 装到默认位置 | 写到当前项目的共享目录 `.agents/skills/three-scene-debugger` |
+| 装到 Claude Code / Cursor / Codex / Copilot / Gemini / OpenCode | 指定 Agent | 加 `--agent <产品>` |
+| 装到全局 / 所有项目都能用 | 用户级目录 | 加 `--global`，且该产品必须有文档化的全局目录 |
+| 装到 `~/.workbuddy/skills` / 装到指定目录 | 自定义路径 | `--target <绝对路径>` |
+| 升级这个技能 / 更新一下 | 覆盖 | 同命令加 `--force` |
+
+执行步骤：
+
+1. **确定来源**：本机已有仓库副本 → `node bin/three-scene-debugger.js install …`；没有 → 用 GitHub 说明符。
+2. **确定目标**：从宿主线索判断当前 Agent（Claude Code 用 `.claude/skills` 且不发现共享目录；Cursor / Codex / Copilot CLI / Gemini CLI / OpenCode 走 `.agents/skills`）。**线索不足只问一次**，不要一次写进六个产品目录。
+3. **执行**：
+
+```sh
+# 默认（共享发现目录，无交互）
+npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger install
+
+# 指定 Agent / 全局 / 自定义路径 / 覆盖升级
+npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger install --agent claude-code
+npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger install --global --agent gemini-cli
+npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger install --target /abs/path/three-scene-debugger
+npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger install --force
+```
+
+4. **验证**：`--version` 打印 `0.10.1`；目标目录里有 `SKILL.md`、`dist/`、`references/`、`scripts/`。
+5. **回报**：装到哪个路径、给哪个 Agent 用、怎么升级、怎么卸载（删目录）。装完若用户还要「用起来」，接着走「提示词接入」。
+
+硬约束：
+
+- **禁止** `npm install three-scene-debugger` 和裸 `npx three-scene-debugger`——本包不在 npm registry。
+- 安装器**只复制文件**：不装 three、不启动面板、不改项目配置、不读凭证。不要顺手把运行库写进 `dependencies`；要接页面就走接入流程（`devDependency`）。
+- 用户没说「全局」就不要加 `--global`；`--target` 不展开 `~`，先换成绝对路径。
+- 已有非空目录不静默覆盖；内容相同会直接成功。目标拒绝时如实报告，不要绕过或用 `--force` 强推。
+- 私有网络 / 代理拉不到 GitHub → 先 `git clone`，再用本地路径跑 `node bin/three-scene-debugger.js install`。
+
+## 提示词接入（一句话启动）
+
+用户不需要知道 API，也不该被反问「要不要装」。下列说法一律视为「把调试器接到当前项目」，直接按本节流程执行。
+
+| 用户说法（含同义变形） | 意图 | 做什么 |
+|---|---|---|
+| 给我启动 3D 场景调试 / 启用 3D 场景调试 / 开启调试面板 / 启动 3D 场景调试大师 | 接入并运行 | 扫描项目 → 插入 DEV 分支 → 跑起来验证 |
+| 3D 场景调试大师 / three-scene-debugger / 接入 three-scene-debugger / 加个 Three.js 调试面板 | 接入并运行 | 同上 |
+| 我要调材质 / 调后期 / 查掉帧 / 点选不到东西 | 接入 + 具体任务 | **先接入**，再执行被点名的操作，不要只给 API 不给面板 |
+| 关闭 / 卸载 / 别把调试器带进生产 | 移除 | 默认移除接入代码；仅当用户明确说「只是关掉面板」时才保留代码、调 `destroy()` |
+| 检查 3D 场景调试接好没 / 调试器还在吗 | 只读检查 | 不改代码，输出检查结果 |
+
+执行顺序固定，任一步失败就停下如实报告，不许猜、不许「先写上再说」：
+
+1. **探测**：包管理器与构建工具（vite / webpack / umi / next / 无构建单页）、`three` 版本（`package.json` 或 import 语句）、是否已存在 `createSceneDebugger` 调用。已存在且能跑 → 跳过插入，进入第 5 步补缺。
+2. **定位**：搜 `new THREE.WebGLRenderer` / `new Scene(` / `PerspectiveCamera`，确认 `scene` / `camera` / `renderer` 的作用域与生命周期。只用显式引用。
+3. **选格式**：有打包器 → ESM + `import.meta.env.DEV`；纯静态 HTML / 无构建器 → UMD `scripts/three-scene-debugger.js`。
+4. **插入**：单点初始化、最小 diff，不新增 render 循环，`tick` 挂在已有帧末尾；`controls` / `transformControls` / `bokehPass` 按项目实情注入，没有就不传，不为此新增依赖。
+5. **验证**：dev 下按钮出现、面板能开、控制台无报错；再单独确认生产构建的产物里没有调试器。没验证到就写明没验证。
+6. **回报**：改了哪个文件、插在第几行附近、验证了什么、怎么关。
+
+硬约束：
+
+- 已接入且可用 → **不重复插入**；只补确实缺的项（如补 `transformControls`、`assets`、`tick`）。
+- 找不到 `scene` / `renderer` → 停下来讲清缺什么、给出候选位置。不许翻闭包、`window.__proto__`、React fiber 硬猜，也不许为了接入重构应用架构。
+- 不改构建配置、不把调试器写进生产入口、不伪造验证结果。
+- 不因为「是调试」就降低要求：`THREE` 必须复用宿主那份，`destroy()` 必须能被 HMR/卸载安全调用。
+
+报告模板（照这个结构写，别写成散文）：
+
+```
+接入完成 · vite + three 0.169
+改动：src/scene/init.ts:42-49  DEV 分支动态 import，传 scene/camera/renderer/THREE/controls
+未传：transformControls（项目未安装 addon，需要拖拽手柄时再加）
+验证：dev 下红色按钮已出现、面板可开；生产产物已检查，无调试器代码
+关闭：删掉该 DEV 分支，或运行时 sceneDebug.destroy()
+```
 
 ## 安装 Skill 与安装运行库
 

@@ -7,7 +7,7 @@
 |---|---|
 | 仓库 | <https://github.com/8vdpxdrv4c-dot/three-scene-debugger> |
 | 当前版本 | 0.10.1 |
-| 许可 | MIT |
+| 许可 | CC BY-NC 4.0（必须署名，禁止商用） |
 | 运行环境 | Node ≥ 18；宿主页面自带 `three` ≥ 0.160 且 < 1 |
 | 分发方式 | GitHub（`main` 分支），**未发布到 npm registry** |
 
@@ -18,7 +18,15 @@
 
 ## 一、安装 Agent Skill（推荐）
 
-在**你的项目目录**执行：
+也可以直接对 Agent 说一句，让它代跑下面的安装器：
+
+| 你说 | 效果 |
+|---|---|
+| **给我安装这个技能** | 装到当前项目的 `.agents/skills/three-scene-debugger`；Claude Code 会改走 `--agent claude-code` |
+| 装到 Claude Code / Cursor / 全局 / 指定目录 | 对应 `--agent`、`--global`、`--target` |
+| 升级这个技能 | 同命令加 `--force` |
+
+在**你的项目目录**执行（等价的命令）：
 
 ```sh
 npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger install
@@ -62,6 +70,21 @@ npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debug
 - `--target` 只复制到该目录，**不代表任何 Agent 会自动发现它**；`~` 不会展开，请写绝对路径。
 - 多个目标会先全部检查，任一拒绝则一个都不写。
 - 安装后目录含 `assets/`（约 22 MB 的 CC0 HDR 与 PBR 素材）；整目录删掉不影响核心功能，只是少了素材网格。自制贴图库是程序化生成的，不依赖这些图片。
+
+### 装完怎么用：一句话
+
+不需要自己找接入点，在 Agent 里直接说：
+
+```text
+给我启动 3D 场景调试
+启用 3D 场景调试
+3D 场景调试大师
+```
+
+Agent 会探测构建工具与 `three` 版本 → 定位 `scene/camera/renderer` → 插入 `import.meta.env.DEV` 分支 → 验证面板能开 → 回报改了哪个文件。已接入的项目只补缺失项，不会重复插入。
+
+其余口令：`关闭 / 卸载 3D 场景调试`（默认移除接入代码）、`检查 3D 场景调试接好没`（只读检查）。
+口令表与执行约束见 [SKILL.md](SKILL.md) 的「提示词接入」一节。
 
 ---
 
@@ -168,4 +191,4 @@ if (import.meta.env.DEV) {
 }
 ```
 
-Development only, MIT, Three ≥ 0.160 < 1 supplied by the host app. Not published to npm.
+Development only, CC BY-NC 4.0 (attribution required, commercial use prohibited), Three ≥ 0.160 < 1 supplied by the host app. Not published to npm.
