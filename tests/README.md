@@ -1,5 +1,14 @@
 # 验证记录与复现
 
+## 0.10.2 增量复测（2026-11-11，Windows）
+
+本机依赖临时装在仓库目录（`npm install --no-save three@0.169.0 jsdom@25`，未写进 `package.json`）：
+
+- `TSD_TEST_DEPS=<repo>/node_modules node tests/runtime.cjs`：**21 组通过**（Node v22.22.2、three 169、jsdom 25.0.1）。
+- 新增第 21 组覆盖本版改动：`Ctrl/Cmd+Z` 撤销最近一条改动（焦点在 input 内不拦截）、面板位置从 `tsd:panel:pos` 恢复并夹回视口、拖动后 `savePanelPos()` 写回。
+- `node scripts/build.cjs` 重建 dist，`node --check` 三份文件通过。
+- 仍未创建真实 `WebGLRenderer`：`webgl` 与 `visual` 依旧是 `NOT TESTED`，后期预设与一键风格只验证了参数写入路径与 UI 同步，没有验证画面。
+
 ## 0.8.4 真实宿主复测（2026-11-10，Windows）
 
 在独立测试台 `E:\3D项目制作\three-skill-test` 建了 3 个架构不同的 Three.js 单页宿主（ESM+importmap / UMD 全局 / 多文件模块+动画+材质数组），另加一个 Three r168 旧版宿主。Chrome headless + SwiftShader，CDP 驱动：

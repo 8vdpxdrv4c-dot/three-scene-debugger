@@ -91,7 +91,7 @@ npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debug
 npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger install --force
 ```
 
-4. **验证**：`--version` 打印 `0.10.1`；目标目录里有 `SKILL.md`、`dist/`、`references/`、`scripts/`。
+4. **验证**：`--version` 打印 `0.10.2`；目标目录里有 `SKILL.md`、`dist/`、`references/`、`scripts/`。
 5. **回报**：装到哪个路径、给哪个 Agent 用、怎么升级、怎么卸载（删目录）。装完若用户还要「用起来」，接着走「提示词接入」。
 
 硬约束：
@@ -171,8 +171,8 @@ if (import.meta.env.DEV) {
 | PropertyInspector | Object3D 变换/显示/阴影标志/userData JSON；按类型材质、纹理、灯光、相机、场景与 renderer 控件 |
 | ChangeTracker | 深拷贝 old/new、对象分组、逐条冲突检测撤销、清空记录、精简 JSON/赋值代码 |
 | PerformanceMonitor | 可选 tick 的真实渲染 FPS；renderer.info calls/triangles；缓存资源内存估算 |
-| UILayer | 内嵌原生 DOM/ShadowRoot；左上角常驻红色入口按钮「3D场景调试大师」（fixed、最高 z-index），面板标题栏可拖拽，双击标题栏回默认位置；无需 Tweakpane/lil-gui；本地输出、导入、复制、显式存储 |
-| PostFX（0.9.0） | Bloom / 调色 / 暗角 / 色差 / 颗粒 / 锐化 / 描边 / 像素化 + 线框/法线/剪影视图；**有 `EffectComposer` 时接管已有 Bloom pass 或插入自己的 pass**，没有才走自研离屏链路；零 addon 依赖 |
+| UILayer | 内嵌原生 DOM/ShadowRoot；左上角常驻红色入口按钮「3D场景调试大师」（fixed、最高 z-index），按钮可拖动避让宿主 UI、面板标题栏可拖拽，位置与宽度记忆（双击复位）；无需 Tweakpane/lil-gui；Ctrl/Cmd+Z 撤销最近一条改动；本地输出、导入、复制、显式存储 |
+| PostFX（0.9.0） | Bloom / 调色 / 暗角 / 色差 / 颗粒 / 锐化 / 描边 / 像素化 + 线框/法线/剪影视图；**有 `EffectComposer` 时接管已有 Bloom pass 或插入自己的 pass**，没有才走自研离屏链路；零 addon 依赖；0.10.2 增「自然柔和 / 电影感 / 霓虹夜景」一键风格预设 |
 | UILayer（0.6.0） | 宽度拖拽条（宽度记忆）、快捷工具条、自绘滑块 + 可键入数字框、字段名横向拖拽改值、属性筛选、手柄模式按钮；细节见 [面板交互](references/ui.md) |
 | AssetLibrary（0.5.0） | CC0 HDR 天空盒 + PBR 贴图，清单驱动、懒加载；缺素材时自动降级为程序化环境 |
 | TextureStudio（0.8.0） | 12 套**程序化**材质贴图（零图片文件、零网络）：同一生成器出基础色 / 法线 / 粗糙度，方形无缝平铺；面板抽屉可预览、选通道、调平铺与尺寸；写入材质槽位、可撤销、可导出 |

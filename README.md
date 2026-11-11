@@ -28,7 +28,7 @@ Vibe coding 3D 场景时，最贵的不是写代码，是**验证**：
 
 | 项 | 值 |
 |---|---|
-| 版本 | 0.10.1 |
+| 版本 | 0.10.2 |
 | 许可 | **CC BY-NC 4.0**——必须注明出处、禁止商用，商业使用需另行授权 |
 | 运行环境 | 宿主页面自带 `three` ≥ 0.160、< 1；Node ≥ 18（仅安装器需要） |
 | 分发 | GitHub `main` 分支，**未发布到 npm registry** |
@@ -48,7 +48,7 @@ Vibe coding 3D 场景时，最贵的不是写代码，是**验证**：
 | **材质切换** | Standard / Physical / Phong / Lambert / Basic / Toon / Normal / Matcap / Depth / Shadow，材质数组按槽位，可选同步共用该材质的其他对象 |
 | **程序化贴图库** | 12 套材质（橡木、红砖、清水混凝土、大理石、拉丝金属、六角砖、石板路、皮革、亚麻、沙地、锈蚀、水磨石），浏览器里用周期噪声现算**基础色 + 法线 + 粗糙度**，零图片、零请求、四边无缝 |
 | **HDR 素材库** | 4 个 CC0 HDR 天空盒 + 1 个 LDR 环境 + 8 套 PBR 贴图，清单驱动、懒加载；删掉 `assets/` 也能用程序化环境 |
-| **后期处理** | Bloom / 调色 / 暗角 / 色差 / 颗粒 / 锐化 / 描边 / 像素化 + 线框/法线/剪影调试视图。**页面已有 `EffectComposer` 就接管**（直连现成 Bloom pass 的开关与参数），没有才插自己的 pass，再没有才走内置离屏链路 |
+| **后期处理** | Bloom / 调色 / 暗角 / 色差 / 颗粒 / 锐化 / 描边 / 像素化 + 线框/法线/剪影调试视图。**页面已有 `EffectComposer` 就接管**（直连现成 Bloom pass 的开关与参数），没有才插自己的 pass，再没有才走内置离屏链路。另有三套一键风格：自然柔和 / 电影感 / 霓虹夜景 |
 | **景深** | 独立 BokehPass 通道，按当前机位自动算 `focus/aperture`，关闭时整条 pass 摘除、中间目标 dispose |
 | **性能** | 真实渲染 FPS、draw call、三角形数、纹理与几何内存估算（基于缓存的估算，不冒充精确显存） |
 | **场景编辑** | 点选高亮、TransformControls 拖拽（W/E/R）、加光源、克隆、删除、聚焦、网格与坐标轴、光源/阴影 helper、截图与统计 |
@@ -59,9 +59,11 @@ Vibe coding 3D 场景时，最贵的不是写代码，是**验证**：
 ### 面板长什么样
 
 - 页面左上角常驻一个红色按钮「3D场景调试大师」（`position: fixed`、最高 z-index），面板默认关闭。
+- 按钮**可以拖走**（双击复位），面板拖标题栏也能换位置；按钮与面板的位置都会记住，换屏后自动夹回视口内。
 - 点按钮开关面板；标题栏可拖拽到任意位置（限制在视口内），双击复位。
 - 左边缘是宽度拖拽条（双击复位、宽度记忆），标题下方是「展开全部 / 收起全部 / 复位布局」快捷条。
 - **只有面板打开时才允许点选与拖拽**，关闭面板同时清空选中。
+- 快捷键：`W / E / R` 换手柄模式、`Esc` 取消选中、`Ctrl / Cmd + Z` 撤销最近一条改动（焦点在输入框里时不抢）。
 
 ---
 
@@ -280,7 +282,7 @@ npm install -D /absolute/path/to/three-scene-debugger
 ### 3.3 怎么确认装好了
 
 ```sh
-npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger --version   # three-scene-debugger 0.10.1
+npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger --version   # three-scene-debugger 0.10.2
 ls .agents/skills/three-scene-debugger                                                          # SKILL.md / dist / references / scripts
 ```
 

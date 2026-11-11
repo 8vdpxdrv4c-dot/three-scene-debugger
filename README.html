@@ -264,7 +264,7 @@
       调完直接导出可执行代码或一份给 AI 的修改提示词。不改架构，也不会进生产包。
     </p>
     <div class="badges">
-      <span class="badge"><b>v0.10.1</b></span>
+      <span class="badge"><b>v0.10.2</b></span>
       <span class="badge"><b>CC BY-NC 4.0</b></span>
       <span class="badge">必须署名 · 禁止商用</span>
       <span class="badge">three <b>≥0.160 &lt;1</b></span>
@@ -411,8 +411,9 @@
 
         <ul>
           <li>点按钮开关面板，<strong>只有面板打开时才允许点选与拖拽</strong>，关闭会同时清空选中。</li>
-          <li>标题栏可拖到任意位置（限制在视口内），双击复位；左边缘是宽度拖拽条，宽度会记住。</li>
+          <li>入口按钮<b>可以拖走</b>（双击复位到左上角），面板拖标题栏也能换位置；按钮、面板位置和面板宽度都会记住，换屏后自动夹回视口内。</li>
           <li>标题下方「展开全部 / 收起全部 / 复位布局」，分组是带箭头的卡片。</li>
+          <li>快捷键：<code>W / E / R</code> 换手柄、<code>Esc</code> 取消选中、<code>Ctrl / Cmd + Z</code> 撤销最近一条改动。</li>
           <li>面板底部常驻「复制修改提示词」大按钮，显示改动处数，无改动时禁用。</li>
         </ul>
       </section>
@@ -678,7 +679,7 @@ npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debug
 
         <h3>3 · 确认装好了</h3>
         <ol class="steps">
-          <li><b>命令行</b><span><code>three-scene-debugger --version</code> 输出 <code>0.10.1</code>；<code>--list-agents</code> 能列出路径。</span></li>
+          <li><b>命令行</b><span><code>three-scene-debugger --version</code> 输出 <code>0.10.2</code>；<code>--list-agents</code> 能列出路径。</span></li>
           <li><b>目录</b><span>目标目录里有 <code>SKILL.md</code> / <code>dist/</code> / <code>references/</code> / <code>scripts/</code>。</span></li>
           <li><b>页面</b><span>左上角出现红色「3D场景调试大师」→ 点开 → 点物体 → 材质页 → 贴图库。</span></li>
           <li><b>生产</b><span>构建一次生产包，确认产物里没有调试器代码；<code>devDependency</code> 本身不保证剔除。</span></li>
@@ -832,7 +833,7 @@ node scripts/build.cjs <span class="c"># 从核心源重建 dist/ 两种格式</
 
 <footer>
   <div class="wrap">
-    <span>three-scene-debugger v0.10.1 · CC BY-NC 4.0 · 署名 + 禁商用</span>
+    <span>three-scene-debugger v0.10.2 · CC BY-NC 4.0 · 署名 + 禁商用</span>
     <span class="sep">素材 CC0 · 来源见 assets/CREDITS.md</span>
   </div>
 </footer>
