@@ -111,9 +111,9 @@ function assertSkillTree(dest) {
   assert.ok(!fs.existsSync(path.join(dest, 'node_modules', 'three')));
   for (const file of found) assert.ok(!file.split('/').includes('..'));
   const core = fs.readFileSync(path.join(dest, 'scripts', 'three-scene-debugger.js'));
-  // 0.5.0 加了后期链路与素材库，核心单文件已过 100 KB。上限留出余量，
-  // 只是防止「误把打包产物或第二份 Three 塞进核心」这种体积异常。
-  assert.ok(core.length < 220000, 'core source looks unexpectedly large: ' + core.length);
+  // 0.10.2 的核心单文件约 270 KB（0.5.0 起后期链路与素材库已过 100 KB）。
+  // 上限留出余量，只是防止「误把打包产物或第二份 Three 塞进核心」这种体积异常。
+  assert.ok(core.length < 320000, 'core source looks unexpectedly large: ' + core.length);
   assert.equal(sha(path.join(dest, 'scripts', 'three-scene-debugger.js')), sha(path.join(repo, 'scripts', 'three-scene-debugger.js')));
   assert.equal(sha(path.join(dest, 'dist', 'three-scene-debugger.mjs')), sha(path.join(repo, 'dist', 'three-scene-debugger.mjs')));
 }

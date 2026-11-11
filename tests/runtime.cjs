@@ -36,5 +36,27 @@ let passed=0;async function test(name,fn){await fn();passed++;console.log('PASS'
  await test('userData JSON tag-like keys stay data through snapshot, undo and code',()=>{const d=createSceneDebugger({scene,camera,renderer,THREE});const initial=JSON.parse(JSON.stringify(mesh.userData));const data={$type:'Color',rgb:[1,2,3],isTexture:true,isColor:true,uuid:'not-a-resource'};const r=d.set(mesh,'userData',data);assert.equal('needsUpdate' in data,false);d.set(mesh,'userData',{...data});assert.deepEqual(d.exportSnapshot().changes[0].newValue,data);const code=d.exportCode();d.undo(r.id);assert.deepEqual(mesh.userData,initial);const snap={format:'three-scene-debugger',version:1,changes:[{target:'object:'+mesh.uuid,propertyPath:'userData',newValue:data}]};assert.equal(d.loadSnapshot(snap).errors.length,0);assert.deepEqual(mesh.userData,data);mesh.userData={};new Function('scene','camera','renderer','THREE',code)(scene,camera,renderer,THREE);assert.deepEqual(mesh.userData,data);d.destroy();});
  await test('snapshot roles and named shared material/texture locators restore across rebuilt UUIDs',()=>{const s1=new THREE.Scene(),c1=new THREE.PerspectiveCamera(),t1=new THREE.Texture(),m1=new THREE.MeshStandardMaterial({map:t1}),o1=new THREE.Mesh(new THREE.BoxGeometry(),m1);o1.name='Portable';s1.add(o1);const a=createSceneDebugger({scene:s1,camera:c1,renderer,THREE});a.set(s1,'background',{$type:'Color',rgb:[.1,.2,.3]});a.set(c1,'fov',37);a.set(o1,'position.x',9);a.set(m1,'roughness',.15);a.set(t1,'repeat.x',4);const snap=a.exportSnapshot();a.destroy();const s2=new THREE.Scene(),c2=new THREE.PerspectiveCamera(),t2=new THREE.Texture(),m2=new THREE.MeshStandardMaterial({map:t2}),o2=new THREE.Mesh(new THREE.BoxGeometry(),m2);o2.name='Portable';s2.add(o2);const b=createSceneDebugger({scene:s2,camera:c2,renderer,THREE});const report=b.loadSnapshot(snap);assert.equal(report.errors.length,0);assert.equal(c2.fov,37);assert.ok(s2.background.isColor);assert.equal(o2.position.x,9);assert.equal(m2.roughness,.15);assert.equal(t2.repeat.x,4);b.destroy();});
  await test('UMD global cleanup refcount and foreign global protection',()=>{const api=window.ThreeSceneDebugger;const a=api.createSceneDebugger({scene,camera,renderer,THREE}),b=api.createSceneDebugger({scene,camera,renderer,THREE});a.destroy();assert.equal(window.ThreeSceneDebugger,api);b.destroy();assert.equal(window.ThreeSceneDebugger,undefined);vm.runInContext(source,dom.getInternalVMContext());const c=window.ThreeSceneDebugger.createSceneDebugger({scene,camera,renderer,THREE});const foreign={foreign:true};window.ThreeSceneDebugger=foreign;c.destroy();assert.equal(window.ThreeSceneDebugger,foreign);});
+ await test('Ctrl+Z undoes latest change; panel position memory restores and clamps',async()=>{
+  window.localStorage.setItem('tsd:panel:pos',JSON.stringify({left:120,top:80}));
+  const d=createSceneDebugger({scene,camera,renderer,THREE});
+  assert.equal(d.ui.panel.style.left,'120px');
+  assert.equal(d.ui.panel.style.top,'80px');
+  d.open();
+  const before=mesh.position.x;
+  const r=d.set(mesh,'position.x',before+4);
+  assert.equal(mesh.position.x,before+4);
+  const ev=new dom.window.Event('keydown',{bubbles:true});ev.key='z';ev.ctrlKey=true;
+  document.dispatchEvent(ev);
+  await Promise.resolve();
+  assert.equal(mesh.position.x,before);
+  assert.equal(d.tracker.records.find(x=>x.id===r.id).active,false);
+  /* 焦点在输入框里时不抢浏览器原生撤销 */
+  const input=d.ui.props.querySelector('input');
+  if(input){const ev2=new dom.window.Event('keydown',{bubbles:true});ev2.key='z';ev2.ctrlKey=true;input.dispatchEvent(ev2);}
+  d.ui.panel.style.left='200px';d.ui.panel.style.top='140px';d.ui.savePanelPos();
+  assert.equal(JSON.parse(window.localStorage.getItem('tsd:panel:pos')).left,200);
+  d.destroy();
+  window.localStorage.removeItem('tsd:panel:pos');
+ });
  console.log(JSON.stringify({passed,node:process.version,three:THREE.REVISION,jsdom:require(path.join(deps,'jsdom/package.json')).version,webgl:'NOT TESTED',visual:'NOT TESTED'}));dom.window.close();
 })().catch(e=>{console.error(e);process.exitCode=1;});

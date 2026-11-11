@@ -1,6 +1,6 @@
 {
   "name": "three-scene-debugger",
-  "version": "0.10.1",
+  "version": "0.10.2",
   "description": "Development-only Three.js scene inspector and Agent Skill. Distributed from GitHub; not published to the npm registry.",
   "license": "CC-BY-NC-4.0",
   "repository": {

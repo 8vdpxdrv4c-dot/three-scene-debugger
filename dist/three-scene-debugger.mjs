@@ -1,6 +1,8 @@
 const globalRoot = null;
 'use strict';
-const VERSION='0.10.1', PREFIX='tsd:snapshot:';
+const VERSION='0.10.2', PREFIX='tsd:snapshot:';
+/* 面板与入口按钮的位置记忆键（宽度用的是 tsd:panel:width，沿用旧键不迁移） */
+const PANEL_POS_KEY='tsd:panel:pos', LAUNCHER_POS_KEY='tsd:launcher:pos';
 const PANEL_CSS = `:host{all:initial}
 *{box-sizing:border-box}
 :host,section{
@@ -167,6 +169,8 @@ button.tsd-aiprompt.tsd-copy-fail{background:linear-gradient(135deg,#c65b54 0%,#
 .tsd-pf-group{margin:7px 0;padding:5px 8px 7px;border:1px solid var(--code-line);border-radius:9px;background:var(--code-bg)}
 .tsd-pf-group>strong{display:block;font-size:11px;font-weight:650;margin:1px 0 2px;color:var(--fg)}
 .tsd-pf-status{margin:5px 0 3px;padding:5px 8px;border-radius:8px;border:1px solid var(--code-line);background:var(--code-bg);color:var(--fg);font-size:10.5px;line-height:1.45}
+.tsd-pf-presets{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin:4px 0 6px}
+.tsd-pf-presets small{flex:1 1 100%;margin:0 0 2px}
 .tsd-pf-status.tsd-pf-warn{border-color:#7a5a2a;color:#f0c07a}
 .tsd-texbox{margin:4px 0 2px;padding:2px 8px 6px;border:1px solid var(--code-line);border-radius:9px;background:var(--code-bg)}
 .tsd-texbox h3{margin:8px 0 4px}
@@ -406,9 +410,10 @@ class UILayer{
   const doc=container?.ownerDocument||(typeof document!=='undefined'?document:null);if(!doc)throw Error('DOM required');
   this.doc=doc;this.host=doc.createElement('div');this.host.dataset.threeSceneDebugger='';(container||doc.body).appendChild(this.host);this.root=this.host.attachShadow?this.host.attachShadow({mode:'open'}):this.host;
  const style=this.el('style');style.textContent=PANEL_CSS;this.root.appendChild(style);
- /* 常驻入口：固定左上角、最高层级、红底；点击开关参数面板 */
- this.launcher=this.el('button',this.root,'3D场景调试大师');this.launcher.type='button';this.launcher.className='tsd-launcher';this.launcher.setAttribute('aria-controls','tsd-panel');
- this.on(this.launcher,'click',()=>this.setOpen(!this.opened));
+ /* 常驻入口：默认左上角、最高层级、红底；可拖动避让宿主自己的 UI，位置记忆 */
+ this.launcher=this.el('button',this.root,'3D场景调试大师');this.launcher.type='button';this.launcher.className='tsd-launcher';this.launcher.setAttribute('aria-controls','tsd-panel');this.launcher.title='点击开关面板 · 可拖动换位置 · 双击复位到左上角';
+ this.on(this.launcher,'click',()=>{if(this._launcherDragged){this._launcherDragged=false;return;}this.setOpen(!this.opened);});
+ this.makeLauncherDraggable();
  this.panel=this.el('section',this.root);this.panel.id='tsd-panel';
  const head=this.el('div',this.panel);head.className='tsd-head';
  this.el('span',head).className='tsd-logo';
@@ -444,7 +449,25 @@ class UILayer{
  this.copyPromptBtn=this.button('复制修改提示词',this.copyBar,()=>this.copy(this.d.exportPrompt(),this.copyPromptBtn));
  this.copyPromptBtn.className='tsd-copyall';
  this.makeResizable();
+ this.restorePos();
+ this.bindShortcuts();
  this.setOpen(false);
+ }
+ /* 面板打开时 Ctrl/Cmd+Z 撤销最近一条改动；焦点在输入框/下拉里则交还浏览器原生撤销 */
+ bindShortcuts(){
+  this.on(this.doc,'keydown',e=>{
+   if(!this.opened||!this.d||this.d.destroyed)return;
+   if(!(e.ctrlKey||e.metaKey)||e.shiftKey||e.altKey)return;
+   if((e.key||'').toLowerCase()!=='z')return;
+   const src=(e.composedPath&&e.composedPath()[0])||e.target;
+   if(src&&(/^(INPUT|TEXTAREA|SELECT)$/.test(src.tagName||'')||src.isContentEditable))return;
+   const rec=this.d.tracker.records.filter(r=>r.active).pop();
+   if(!rec)return;
+   e.preventDefault();
+   try{this.d.undo(rec.id);}catch(err){if(this.message)this.message.textContent='撤销失败：'+err.message;return;}
+   if(this.message)this.message.textContent='';
+   this.inspect();this.changes();
+  });
  }
 
  /* 面板开关：关闭时只留左上角入口；选中/拖拽也随面板关闭而停用 */
@@ -488,9 +511,60 @@ class UILayer{
    panel.style.maxHeight=Math.max(120,vh-top-8)+'px';       // 往下拖时自动收短，避免内容被挤出视口
    if(this.syncResizer)this.syncResizer();
   });
-  const end=e=>{if(!drag)return;drag=null;handle.classList.remove('dragging');try{handle.releasePointerCapture(e.pointerId);}catch(err){}};
+  const end=e=>{if(!drag)return;drag=null;handle.classList.remove('dragging');try{handle.releasePointerCapture(e.pointerId);}catch(err){}this.savePanelPos();};
   this.on(handle,'pointerup',end);this.on(handle,'pointercancel',end);
-  this.on(handle,'dblclick',()=>{panel.style.left='';panel.style.top='';panel.style.right='';panel.style.maxHeight='';if(this.syncResizer)this.syncResizer();});
+  this.on(handle,'dblclick',()=>{panel.style.left='';panel.style.top='';panel.style.right='';panel.style.maxHeight='';this.clearPos(PANEL_POS_KEY);if(this.syncResizer)this.syncResizer();});
+ }
+ /* 位置记忆：面板与入口按钮各存一份；读不到（隐私模式 / 禁存储）就静默用默认位置 */
+ posStore(){try{return (this.d&&this.d.storage)||(this.doc.defaultView&&this.doc.defaultView.localStorage)||globalThis.localStorage||null;}catch(err){return null;}}
+ writePos(key,pos){const s=this.posStore();if(!s||!pos||!Number.isFinite(pos.left)||!Number.isFinite(pos.top))return;try{s.setItem(key,JSON.stringify({left:Math.round(pos.left),top:Math.round(pos.top)}));}catch(err){}}
+ readPos(key){const s=this.posStore();if(!s)return null;try{const raw=s.getItem(key);if(!raw)return null;const p=JSON.parse(raw);return p&&Number.isFinite(p.left)&&Number.isFinite(p.top)?p:null;}catch(err){return null;}}
+ clearPos(key){const s=this.posStore();if(!s)return;try{s.removeItem(key);}catch(err){}}
+ savePanelPos(){if(!this.panel||!this.panel.style.left)return;this.writePos(PANEL_POS_KEY,{left:parseFloat(this.panel.style.left),top:parseFloat(this.panel.style.top)});}
+ /* 恢复位置：一律夹回视口，至少留 48px 可点区域，避免换屏/缩放后按钮跑到屏幕外 */
+ restorePos(){
+  const view=this.doc.defaultView||globalThis;
+  const vw=view.innerWidth||this.doc.documentElement.clientWidth||0,vh=view.innerHeight||this.doc.documentElement.clientHeight||0;
+  if(!vw||!vh)return;
+  const apply=(el,pos,minVisible)=>{
+   if(!el||!pos)return;
+   const w=el.offsetWidth||minVisible,h=el.offsetHeight||32;
+   el.style.left=Math.max(0,Math.min(pos.left,Math.max(0,vw-Math.min(minVisible,w))))+'px';
+   el.style.top=Math.max(0,Math.min(pos.top,Math.max(0,vh-h)))+'px';
+   el.style.right='auto';
+  };
+  apply(this.launcher,this.readPos(LAUNCHER_POS_KEY),48);
+  if(this.panel){apply(this.panel,this.readPos(PANEL_POS_KEY),80);if(this.panel.style.top)this.panel.style.maxHeight=Math.max(120,vh-parseFloat(this.panel.style.top)-8)+'px';}
+  if(this.syncResizer)this.syncResizer();
+ }
+ /* 入口按钮拖拽：位移超过 4px 才算拖，松开后吞掉那一次 click，避免顺手把面板打开 */
+ makeLauncherDraggable(){
+  const view=this.doc.defaultView||globalThis;
+  let drag=null;
+  this.on(this.launcher,'pointerdown',e=>{
+   if(e.button!==undefined&&e.button!==0)return;
+   const r=this.launcher.getBoundingClientRect();
+   drag={x:e.clientX,y:e.clientY,left:r.left,top:r.top,moved:false};
+   try{this.launcher.setPointerCapture(e.pointerId);}catch(err){}
+  });
+  this.on(this.launcher,'pointermove',e=>{
+   if(!drag)return;
+   const dx=e.clientX-drag.x,dy=e.clientY-drag.y;
+   if(!drag.moved&&Math.hypot(dx,dy)<4)return;
+   drag.moved=true;this._launcherDragged=true;
+   const w=this.launcher.offsetWidth||120,h=this.launcher.offsetHeight||32;
+   const vw=view.innerWidth||this.doc.documentElement.clientWidth||0,vh=view.innerHeight||this.doc.documentElement.clientHeight||0;
+   this.launcher.style.left=Math.max(0,Math.min(drag.left+dx,Math.max(0,vw-w)))+'px';
+   this.launcher.style.top=Math.max(0,Math.min(drag.top+dy,Math.max(0,vh-h)))+'px';
+   e.preventDefault();
+  });
+  const end=()=>{
+   if(!drag)return;
+   if(drag.moved){const r=this.launcher.getBoundingClientRect();this.writePos(LAUNCHER_POS_KEY,{left:r.left,top:r.top});setTimeout(()=>{this._launcherDragged=false;},300);}
+   drag=null;
+  };
+  this.on(this.launcher,'pointerup',end);this.on(this.launcher,'pointercancel',end);
+  this.on(this.launcher,'dblclick',()=>{this.launcher.style.left='';this.launcher.style.top='';this.launcher.style.right='';this.clearPos(LAUNCHER_POS_KEY);});
  }
 
  sceneUI(){
@@ -728,6 +802,18 @@ class UILayer{
   this.pfMasterRow=master.parentElement||null;
   this.pfMasterText=this.pfMasterRow?this.pfMasterRow.querySelector('span'):null;
   this.pfHint=this.el('small',body);this.pfHint.className='tsd-hint';
+  /* 一键风格：先给个像样的起点，用户再拖滑块微调；点任意一个都会自动打开总开关 */
+  const presets=this.el('div',body);presets.className='tsd-pf-presets';
+  this.el('small',presets,'一键风格').className='tsd-hint';
+  for(const key of Object.keys(POSTFX_PRESETS)){
+   const p=POSTFX_PRESETS[key];
+   const b=this.button(p.label,presets,()=>{
+    for(const path of Object.keys(p.values))d.setPostFX(path,p.values[path]);
+    this.syncPostFX();this.changes();
+    if(this.message)this.message.textContent='';
+   });
+   b.title=p.hint;
+  }
 
   const group=title=>{const g=this.el('div',body);g.className='tsd-pf-group';this.el('strong',g,title);return g;};
 
@@ -2340,6 +2426,21 @@ const POSTFX_LIMITS = {
   'vignette.amount': [0, 1, 0.01], 'vignette.softness': [0.05, 1.5, 0.01],
   aberration: [0, 8, 0.05], grain: [0, 1, 0.01], sharpen: [0, 1, 0.01], outline: [0, 1, 0.01], pixelate: [1, 32, 1],
   'bokeh.focus': [0, 500, 0.05], 'bokeh.aperture': [0, 0.05, 0.0001], 'bokeh.maxblur': [0, 0.2, 0.001]
+};
+/* 一键风格：只给一组偏离默认的常用值，点一下自动打开总开关，再按需微调 */
+const POSTFX_PRESETS = {
+  soft: {label: '自然柔和', hint: '轻 Bloom + 微对比 + 轻颗粒：适合产品展示与室内场景', values: {
+    'bloom.enabled': true, 'bloom.strength': 0.45, 'bloom.radius': 0.55, 'bloom.threshold': 0.85,
+    'grade.contrast': 1.04, 'grade.saturation': 1.06, 'vignette.amount': 0.18, 'vignette.softness': 1.1,
+    'grain': 0.05, 'aberration': 0.3, 'sharpen': 0.12}},
+  cinema: {label: '电影感', hint: '中等 Bloom + 低饱和 + 暗角与颗粒：适合夜景与叙事镜头', values: {
+    'bloom.enabled': true, 'bloom.strength': 0.8, 'bloom.radius': 0.6, 'bloom.threshold': 0.6,
+    'grade.contrast': 1.12, 'grade.saturation': 0.95, 'grade.temperature': 0.08,
+    'vignette.amount': 0.32, 'vignette.softness': 0.9, 'grain': 0.12, 'aberration': 0.8, 'sharpen': 0.2}},
+  neon: {label: '霓虹夜景', hint: '强 Bloom + 低阈值 + 高饱和与色差：适合赛博/夜景发光体', values: {
+    'bloom.enabled': true, 'bloom.strength': 1.6, 'bloom.radius': 0.72, 'bloom.threshold': 0.32,
+    'grade.contrast': 1.18, 'grade.saturation': 1.22, 'grade.temperature': -0.12,
+    'vignette.amount': 0.45, 'vignette.softness': 0.7, 'grain': 0.18, 'aberration': 1.6, 'sharpen': 0.25}}
 };
 const POSTFX_VIEWS = [['final', '最终画面'], ['wireframe', '线框'], ['normal', '法线'], ['flat', '无光照剪影']];
 const ENUM_GROUPS = {
