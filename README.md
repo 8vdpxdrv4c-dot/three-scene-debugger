@@ -219,9 +219,16 @@ sceneDebug.applyTexturePreset(mesh.uuid, 'oak', {
 | 装到 Claude Code / Cursor | 加 `--agent claude-code` / `--agent cursor` |
 | 装到全局，所有项目都能用 | 加 `--global`（该产品必须有文档化的全局目录） |
 | 装到 `~/.workbuddy/skills` | 用 `--target`，`~/` 由安装器展开，无需自己换成绝对路径 |
+| 装到其它任意 Agent | 说出产品名或它的 skills 目录，Agent 走 `--target` |
 | 升级这个技能 | 同命令加 `--force` |
 
 它不会一次写进六个产品目录，也不会顺手把运行库塞进 `dependencies`——安装 Skill 和接进页面是两件事。
+
+> 上面的口令只对**已装本 Skill 的 Agent** 有效。要在一个从没装过的 Agent 里一句话装好，把自包含的引导提示词发给它，见 [INSTALL.md「一句话安装」](INSTALL.md#一句话安装发给任意-agent-的提示词)。短版：
+>
+> ```text
+> 请安装 Agent Skill three-scene-debugger，来源 https://github.com/8vdpxdrv4c-dot/three-scene-debugger ，未发布到 npm registry。用 npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger install --target <你的 skills 目录>/three-scene-debugger 装好，回报路径、升级方式和卸载方式。
+> ```
 
 在项目目录执行（等价的命令）：
 

@@ -671,6 +671,14 @@ npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debug
           <b>上表不是白名单，任意 Agent 都能装。</b>Agent Skills 规范只要求目录里有带 <code>name</code> / <code>description</code> 的 <code>SKILL.md</code>，目录位置由各产品自己定。把 <code>--target</code> 指向该产品文档里的 skills 目录即可（项目级 / 用户级都行，开头的 <code>~/</code> 由安装器自己展开，不依赖 shell）。<code>--list-agents</code> 只是已知默认路径速查，不在表里的产品照样能装。内网可以先 <code>git clone</code> 再跑 <code>node bin/three-scene-debugger.js install --target …</code>；完全不跑安装器时，手工复制 <code>SKILL.md</code> + <code>references/</code> 也能让 Agent 用起来。<code>--target</code> 只复制文件，<b>是否自动发现由该产品的目录约定决定</b>。
         </div>
 
+        <p><b>一句话安装</b>：已装本 Skill 的 Agent 直接说「给我安装这个技能」；从没装过的 Agent 收不到口令表，把下面这段自包含提示词发给它即可（完整版见 <code>INSTALL.md</code>）。</p>
+        <div class="code">
+          <div class="code-head"><span class="path">prompt</span><button class="copy" data-copy="#c-prompt">复制</button></div>
+          <pre id="c-prompt">请安装 Agent Skill three-scene-debugger（3D 场景调试大师），来源 https://github.com/8vdpxdrv4c-dot/three-scene-debugger ，未发布到 npm registry。
+请查你自己的文档确定 skills 目录，用 npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger install --target &lt;你的 skills 目录&gt;/three-scene-debugger 装好。
+装完回报路径、升级方式（同命令加 --force）和卸载方式（删目录）。安装器只复制文件，不要安装 three、不要改我的项目配置、不要动我的 Three.js 代码。</pre>
+        </div>
+
         <h3>2 · 安装运行库</h3>
         <div class="code">
           <div class="code-head"><span class="path">terminal</span><button class="copy" data-copy="#c-lib">复制</button></div>

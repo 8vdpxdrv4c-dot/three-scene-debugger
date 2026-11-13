@@ -98,6 +98,52 @@ npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debug
 
 验证：目标目录含 `SKILL.md`；`--version` 打印 `0.10.2`；让该 Agent 说「检查 3D 场景调试接好没」能读到本技能。
 
+### 一句话安装：发给任意 Agent 的提示词
+
+**先分清两种场景**：「给我安装这个技能」这类口令只对**已经装了本 Skill 的 Agent** 有效——它读得到 `SKILL.md` 里的口令表。一个从没装过的 Agent 不知道这是什么、从哪拉、装到哪，所以要把上下文一起写进提示词。
+
+**短版**（对方 Agent 会自己查路径时）：
+
+```text
+请安装 Agent Skill three-scene-debugger（3D 场景调试大师），来源 https://github.com/8vdpxdrv4c-dot/three-scene-debugger ，未发布到 npm registry。用 npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger install --target <你的 skills 目录>/three-scene-debugger 装好，回报路径、升级方式和卸载方式。
+```
+
+**完整版**（推荐，自包含、不依赖对方已知任何约定）：
+
+```text
+请帮我安装 three-scene-debugger（3D 场景调试大师）这个 Agent Skill。
+
+来源：https://github.com/8vdpxdrv4c-dot/three-scene-debugger
+注意：它未发布到 npm registry，禁止 npm install three-scene-debugger，也不要裸跑 npx three-scene-debugger。
+
+步骤：
+1. 查你自己的文档，确定你加载 Skill 的目录（项目级或用户级都行）。不确定先跑：
+   npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger --list-agents
+   这张表只是已知产品的默认路径速查，不是白名单；表里没有你的产品也照样能装。
+2. 执行（把 <目录> 换成第 1 步的结果）：
+   npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger install --target <目录>/three-scene-debugger
+   Claude Code 改用 --agent claude-code；WorkBuddy 的目标是 ~/.workbuddy/skills/three-scene-debugger。
+   内网拉不到 GitHub：先 git clone 该仓库，再在仓库里跑
+   node bin/three-scene-debugger.js install --target <目录>。
+3. 验证：--version 打印 0.10.2；目标目录含 SKILL.md、references/、dist/、scripts/。
+4. 回报：装到哪个路径、给哪个 Agent 用、怎么升级（同命令加 --force）、怎么卸载（删目录）。
+
+约束：安装器只复制文件。不要安装 three、不要启动调试面板、不要改我的项目配置、
+不要把运行库写进 dependencies。装完不要自作主张改我的 Three.js 代码，
+等我明确说「给我启动 3D 场景调试」时再走接入流程。
+```
+
+**已装本 Skill 的 Agent 只需一句话**：
+
+| 你说 | 效果 |
+|---|---|
+| **给我安装这个技能** / 安装 three-scene-debugger | 装到当前项目默认目录；Claude Code 自动改走 `--agent claude-code` |
+| 装到 Claude Code / Cursor / 装到全局 / 装到 `~/.workbuddy/skills` | 加对应 `--agent` / `--global` / `--target` |
+| 装到其它任意 Agent | 加上目标产品名或它的 skills 目录，Agent 会走 `--target` |
+| 升级这个技能 / 检查装好没 | 加 `--force` / 只读检查 |
+
+> 提示词里的 `<目录>` 是占位符，不是命令的一部分；`--target` 开头的 `~/` 由安装器展开，Windows 也能照抄。
+
 ### 装完怎么用：一句话
 
 不需要自己找接入点，在 Agent 里直接说：
