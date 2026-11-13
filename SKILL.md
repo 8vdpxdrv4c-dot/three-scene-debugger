@@ -71,13 +71,14 @@ ESM 与 UMD 是不同格式；UMD 源不能同时提供原生命名导出。`nod
 | 给我安装这个技能 / 安装 three-scene-debugger / 装一下这个技能 | 装到默认位置 | 写到当前项目的共享目录 `.agents/skills/three-scene-debugger` |
 | 装到 Claude Code / Cursor / Codex / Copilot / Gemini / OpenCode | 指定 Agent | 加 `--agent <产品>` |
 | 装到全局 / 所有项目都能用 | 用户级目录 | 加 `--global`，且该产品必须有文档化的全局目录 |
-| 装到 `~/.workbuddy/skills` / 装到指定目录 | 自定义路径 | `--target <绝对路径>` |
+| 装到 `~/.workbuddy/skills` / 装到指定目录 | 自定义路径 | `--target <目录>`，开头的 `~/` 安装器会展开 |
+| 装到其它任意 Agent / 产品不在 `--list-agents` 表里 | 通用路径 | 查该产品的 skills 目录 → `--target <该目录>/three-scene-debugger`；**不要回答「不支持」** |
 | 升级这个技能 / 更新一下 | 覆盖 | 同命令加 `--force` |
 
 执行步骤：
 
 1. **确定来源**：本机已有仓库副本 → `node bin/three-scene-debugger.js install …`；没有 → 用 GitHub 说明符。
-2. **确定目标**：从宿主线索判断当前 Agent（Claude Code 用 `.claude/skills` 且不发现共享目录；Cursor / Codex / Copilot CLI / Gemini CLI / OpenCode 走 `.agents/skills`）。**线索不足只问一次**，不要一次写进六个产品目录。
+2. **确定目标**：从宿主线索判断当前 Agent（Claude Code 用 `.claude/skills` 且不发现共享目录；Cursor / Codex / Copilot CLI / Gemini CLI / OpenCode 走 `.agents/skills`）。`--list-agents` 的表只是已知默认路径，**不是支持列表**：任意 Agent 只要查到它的 skills 目录，就用 `--target <该目录>/three-scene-debugger`；完全查不到时也可手工复制 `SKILL.md` + `references/`。**线索不足只问一次**，不要一次写进六个产品目录。
 3. **执行**：
 
 ```sh
@@ -87,7 +88,9 @@ npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debug
 # 指定 Agent / 全局 / 自定义路径 / 覆盖升级
 npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger install --agent claude-code
 npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger install --global --agent gemini-cli
-npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger install --target /abs/path/three-scene-debugger
+npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger install --target ~/.workbuddy/skills/three-scene-debugger
+# 任意其它 Agent：把 --target 指向该产品文档里的 skills 目录
+npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger install --target <该产品的 skills 目录>/three-scene-debugger
 npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger install --force
 ```
 
@@ -98,8 +101,9 @@ npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debug
 
 - **禁止** `npm install three-scene-debugger` 和裸 `npx three-scene-debugger`——本包不在 npm registry。
 - 安装器**只复制文件**：不装 three、不启动面板、不改项目配置、不读凭证。不要顺手把运行库写进 `dependencies`；要接页面就走接入流程（`devDependency`）。
-- 用户没说「全局」就不要加 `--global`；`--target` 不展开 `~`，先换成绝对路径。
+- 用户没说「全局」就不要加 `--global`；`--target` 开头的 `~/` 由安装器自己展开，直接写 `~/.workbuddy/skills/three-scene-debugger` 即可，不要换成某个人的绝对路径。
 - 已有非空目录不静默覆盖；内容相同会直接成功。目标拒绝时如实报告，不要绕过或用 `--force` 强推。
+- 别因为某产品不在 `--list-agents` 里就说装不了：用 `--target` 指向它的 skills 目录即可。**任何 Agent 都能装本 Skill**；`--target` 不注册发现路径，是否自动发现由该产品决定。完整说明见 [README 3.1.1](README.md#311-任意-agent-都能装上表不是白名单) 与 [INSTALL.md](INSTALL.md#任意-agent-都能装上表不是白名单)。
 - 私有网络 / 代理拉不到 GitHub → 先 `git clone`，再用本地路径跑 `node bin/three-scene-debugger.js install`。
 
 ## 提示词接入（一句话启动）
@@ -150,7 +154,7 @@ npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debug
 npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger --list-agents
 ```
 
-不带 `--agent` 时写入项目 `.agents/skills/three-scene-debugger`。这是 Cursor、Codex、GitHub Copilot CLI、Gemini CLI、OpenCode 文档里的共享发现目录，不是 Claude Code 的文档路径。Claude Code 用 `--agent claude-code`（项目 `.claude/skills`，全局 `~/.claude/skills`）。`--agent` 可重复，或写成逗号列表；相同目标只写一次。`--global` 只使用该 agent 自己文档里的用户目录，没有文档记录就不写，也不改用 Claude 的全局目录。`--target <目录>` 只复制到这个目录，不代表任何 Agent 会自动发现它。已有非空目录不静默覆盖；内容相同则直接成功。`--force` 只更新本 Skill 的普通文件，不删除无关文件，不覆盖符号链接。非交互终端不会提问。上述 GitHub 说明符在合并后指向默认分支。
+不带 `--agent` 时写入项目 `.agents/skills/three-scene-debugger`。这是 Cursor、Codex、GitHub Copilot CLI、Gemini CLI、OpenCode 文档里的共享发现目录，不是 Claude Code 的文档路径。Claude Code 用 `--agent claude-code`（项目 `.claude/skills`，全局 `~/.claude/skills`）。`--agent` 可重复，或写成逗号列表；相同目标只写一次。`--global` 只使用该 agent 自己文档里的用户目录，没有文档记录就不写，也不改用 Claude 的全局目录。`--target <目录>` 只复制到这个目录，不代表任何 Agent 会自动发现它；开头的 `~/` 由安装器展开。已有非空目录不静默覆盖；内容相同则直接成功。`--force` 只更新本 Skill 的普通文件，不删除无关文件，不覆盖符号链接。非交互终端不会提问。上述 GitHub 说明符在合并后指向默认分支。
 
 运行库没有发布到 npm registry。不要使用 `npm install three-scene-debugger`，也不要使用裸 `npx three-scene-debugger`。宿主自行安装 Three；本包只把 three 声明为 peerDependency，dist 不内置第二份。本地 devDependency：`npm install -D /absolute/path/to/three-scene-debugger`。GitHub devDependency：`npm install -D github:8vdpxdrv4c-dot/three-scene-debugger`。列为 devDependency 不保证生产剔除，必须用构建期 DEV 分支并检查产物：
 

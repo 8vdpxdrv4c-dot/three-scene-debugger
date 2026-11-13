@@ -644,7 +644,10 @@ npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debug
 <span class="c"># 多个 Agent；也支持 --global；--target 走自定义路径（WorkBuddy 用这条）</span>
 npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger install --agent cursor,opencode
 
-<span class="c"># 查看全部支持的产品与路径</span>
+<span class="c"># 任意其它 Agent：--target 指向该产品的 skills 目录（WorkBuddy 示例）</span>
+npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger install --target ~/.workbuddy/skills/three-scene-debugger
+
+<span class="c"># 查看已收录的产品与路径</span>
 npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger --list-agents</pre>
         </div>
 
@@ -663,6 +666,10 @@ npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debug
         </div>
 
         <p>已有非空目录不会静默覆盖；内容相同则再次执行直接成功；<code>--force</code> 只替换本技能清单里的普通文件；多个目标先全部检查，任一拒绝则一个都不写。</p>
+
+        <div class="note">
+          <b>上表不是白名单，任意 Agent 都能装。</b>Agent Skills 规范只要求目录里有带 <code>name</code> / <code>description</code> 的 <code>SKILL.md</code>，目录位置由各产品自己定。把 <code>--target</code> 指向该产品文档里的 skills 目录即可（项目级 / 用户级都行，开头的 <code>~/</code> 由安装器自己展开，不依赖 shell）。<code>--list-agents</code> 只是已知默认路径速查，不在表里的产品照样能装。内网可以先 <code>git clone</code> 再跑 <code>node bin/three-scene-debugger.js install --target …</code>；完全不跑安装器时，手工复制 <code>SKILL.md</code> + <code>references/</code> 也能让 Agent 用起来。<code>--target</code> 只复制文件，<b>是否自动发现由该产品的目录约定决定</b>。
+        </div>
 
         <h3>2 · 安装运行库</h3>
         <div class="code">

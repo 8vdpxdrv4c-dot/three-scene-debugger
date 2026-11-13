@@ -160,6 +160,9 @@ function listAgentsText() {
     '--agent may be repeated or comma-separated. Duplicate ids and identical',
     'directories are installed once. --target <dir> writes only that directory',
     'and does not register it with an agent, so discovery is not implied.',
+    'This table is a list of documented defaults, NOT a list of supported',
+    'products: any agent that loads skills from a directory can install with',
+    '  --target <that product skills dir>/' + SKILL_NAME,
     'An agent with no documented global directory is an error under --global;',
     'the installer does not substitute another product directory.',
     '',
@@ -187,7 +190,8 @@ Options:
   --agent <id>       Install for one documented agent. Repeat or use commas.
   --global           Use that agent's documented user directory, or the shared
                      ~/.agents/skills directory when --agent is omitted
-  --target <dir>     Copy into this exact directory (it will contain SKILL.md)
+  --target <dir>     Copy into this exact directory (it will contain SKILL.md).
+                     A leading ~/ is expanded for you.
   --force            Update an existing install of this skill
   --list-agents      Print the path table and sources, then exit
   -h, --help         Show this help
@@ -199,12 +203,15 @@ Default directory, from the current working directory, with no prompt:
 That shared directory is documented for Cursor, Codex, GitHub Copilot CLI,
 Gemini CLI, and OpenCode. It is not the documented Claude Code directory.
 Use --agent claude-code for .claude/skills/${SKILL_NAME}. Run --list-agents
-for every id, project path, global path, and source URL.
+for every id, project path, global path, and source URL. Any other agent can
+install with --target <its skills directory>/${SKILL_NAME}; the --list-agents
+table lists documented defaults, not a whitelist.
 
---target cannot be combined with --agent or --global. --target is not
-shell-expanded, so pass a real path instead of "~". A custom path is not
-automatically discovered. --global uses the process home directory only for
-a path the selected agent documents.
+--target cannot be combined with --agent or --global. A leading "~/" in
+--target is expanded by the installer itself, so "~/.workbuddy/skills/
+three-scene-debugger" works even where the shell does not expand it. A custom
+path is not automatically discovered. --global uses the process home directory
+only for a path the selected agent documents.
 
 A missing directory is created. An empty directory is filled. If every skill
 file is already identical, the command exits 0 without rewriting files. A
@@ -321,11 +328,26 @@ function assertNotSystem(abs) {
   }
 }
 
+// Expand a leading "~" ourselves instead of relying on the shell: the
+// documented WorkBuddy target is written as ~/.workbuddy/skills/... and cmd.exe
+// never expands it. Only "~", "~/..." and "~\\..." are accepted; "~user" is
+// rejected rather than silently resolved against the working directory.
+function expandHome(input) {
+  if (input === '~') return homeDirectory();
+  if (input.startsWith('~/') || input.startsWith('~\\')) {
+    return path.join(homeDirectory(), input.slice(2));
+  }
+  if (input.startsWith('~')) {
+    throw refuse('Only "~" and "~/..." are expanded. Pass a real path instead of ' + input);
+  }
+  return input;
+}
+
 function resolveSafe(input) {
   if (typeof input !== 'string' || input.length === 0 || input.includes('\0')) {
     throw refuse('Invalid destination path');
   }
-  const abs = path.resolve(input);
+  const abs = path.resolve(expandHome(input));
   const root = path.parse(abs).root;
   let current = root;
   const parts = abs.slice(root.length).split(path.sep).filter(Boolean);

@@ -74,7 +74,7 @@ npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debug
 
 不带 `--agent` 时，项目目录是 `.agents/skills/three-scene-debugger`，`--global` 是 `~/.agents/skills/three-scene-debugger`。Agent Skills 规范只规定 Skill 目录内部要有 `SKILL.md`，没有规定必须放在 `.agents/skills`。下面这些产品的官方文档写了它们会发现这个共享目录：Cursor、Codex、GitHub Copilot CLI、Gemini CLI、OpenCode。Claude Code 的官方文档写的是 `.claude/skills` 与 `~/.claude/skills`，没有写 `.agents/skills`，所以默认安装不会放到 Claude 目录。
 
-`--agent <id>` 可以重复，也可以用逗号分隔。每个 id 使用该产品文档中的目录，而不是一律写到 Claude。同一个目标路径只复制一次。`--target` 是任意目录，安装器不向任何 Agent 注册它；工具不会因此自动发现这个路径。仓库根目录的 `SKILL.md` 能被按根目录发现 Skill 的工具看到。安装器拒绝静默覆盖非空的无关目录，拒绝符号链接和逃出目标目录的路径。完整路径表和来源链接在 README，也可以运行 `--list-agents`。
+`--agent <id>` 可以重复，也可以用逗号分隔。每个 id 使用该产品文档中的目录，而不是一律写到 Claude。同一个目标路径只复制一次。`--target` 是任意目录，开头写 `~/` 时由安装器自己展开（cmd.exe 不展开波浪号），安装器不向任何 Agent 注册它；工具不会因此自动发现这个路径。仓库根目录的 `SKILL.md` 能被按根目录发现 Skill 的工具看到。路径表只是已知产品的默认值，**不是支持列表**：任何按目录加载 Skill 的 Agent 都可装，把 `--target` 指向它自己的 skills 目录即可，或手工复制 `SKILL.md` + `references/` 到该目录。安装器拒绝静默覆盖非空的无关目录，拒绝符号链接和逃出目标目录的路径。完整路径表和来源链接在 README，也可以运行 `--list-agents`。
 
 ## 确保生产构建剔除
 

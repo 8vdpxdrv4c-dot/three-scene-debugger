@@ -204,7 +204,7 @@ sceneDebug.applyTexturePreset(mesh.uuid, 'oak', {
 
 | 你要什么 | 装什么 | 命令 |
 |---|---|---|
-| 让 **Agent** 会调这个技能 | 安装 Agent Skill（复制 SKILL.md / references / dist 等文件） | 见 3.1 |
+| 让 **任意 Agent** 会调这个技能 | 安装 Agent Skill（复制 SKILL.md / references / dist 等文件） | 见 3.1，任意产品见 3.1.1 |
 | 让 **页面** 出现调试面板 | 安装运行库（`devDependency`） | 见 3.2 |
 
 `npx` 在这里只负责跑文件复制安装器：不安装 Three、不启动面板、不执行项目脚本、不读取凭证。
@@ -218,7 +218,7 @@ sceneDebug.applyTexturePreset(mesh.uuid, 'oak', {
 | **给我安装这个技能** | 判断当前 Agent → 选对应目录 → 跑安装器 → 验证目录与版本 |
 | 装到 Claude Code / Cursor | 加 `--agent claude-code` / `--agent cursor` |
 | 装到全局，所有项目都能用 | 加 `--global`（该产品必须有文档化的全局目录） |
-| 装到 `~/.workbuddy/skills` | 用 `--target`，先展开成绝对路径 |
+| 装到 `~/.workbuddy/skills` | 用 `--target`，`~/` 由安装器展开，无需自己换成绝对路径 |
 | 升级这个技能 | 同命令加 `--force` |
 
 它不会一次写进六个产品目录，也不会顺手把运行库塞进 `dependencies`——安装 Skill 和接进页面是两件事。
@@ -257,7 +257,35 @@ npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debug
 | `gemini-cli` | `.gemini/skills/three-scene-debugger` | `~/.gemini/skills/three-scene-debugger` |
 | `opencode` | `.opencode/skills/three-scene-debugger` | `~/.config/opencode/skills/three-scene-debugger` |
 
-行为约定：已有非空目录不静默覆盖；内容相同则直接成功；`--force` 只替换本技能清单内的普通文件，不删无关文件；多个目标先全部检查，任一拒绝则一个都不写；`--target` 不展开 `~`，也不代表任何 Agent 会自动发现它。
+行为约定：已有非空目录不静默覆盖；内容相同则直接成功；`--force` 只替换本技能清单内的普通文件，不删无关文件；多个目标先全部检查，任一拒绝则一个都不写；`--target` 里开头的 `~/` 由安装器自己展开（cmd.exe 这类不展开波浪号的 shell 也能照抄示例），但它不代表任何 Agent 会自动发现该目录。
+
+### 3.1.1 任意 Agent 都能装（上表不是白名单）
+
+上表只是**已知产品的默认路径速查**，不是支持列表。本 Skill 不绑定任何 Agent：Agent Skills 规范只要求「一个目录里有带 `name` / `description` frontmatter 的 `SKILL.md`」，这个目录放在哪由各产品自己规定。凡支持按目录加载 Skill 的 Agent 都能装，三条路任选：
+
+**① 知道该产品的 skills 目录 → 直接指过去（推荐）**
+
+```sh
+npx --yes --package=github:8vdpxdrv4c-dot/three-scene-debugger three-scene-debugger install --target <该产品的 skills 目录>/three-scene-debugger
+```
+
+`<...>` 换成该产品文档里的路径，项目级、用户级都行。例如 WorkBuddy 是 `~/.workbuddy/skills`，于是完整目标为 `~/.workbuddy/skills/three-scene-debugger`。`--target` 接受绝对路径、相对路径和 `~/...`（安装器自己展开），不校验它属于哪个产品，也不替你注册发现路径。给多个产品各装一份，重复运行即可。
+
+**② 内网 / 不想走 npx → 本地仓库副本**
+
+```sh
+git clone https://github.com/8vdpxdrv4c-dot/three-scene-debugger.git
+cd three-scene-debugger
+node bin/three-scene-debugger.js install --target <该产品的 skills 目录>/three-scene-debugger
+```
+
+**③ 完全手工（不跑安装器）**
+
+把仓库内容复制到该产品 skills 目录下、文件夹命名为 `three-scene-debugger/`。最小可用集合：`SKILL.md` + `references/`（Agent 靠这两样就能读懂并执行本技能）；要在页面里真正跑起调试器再加 `dist/`、`scripts/`，`assets/` 可选（约 22 MB，删掉不影响核心功能）。直接复制整个仓库最省事。
+
+**怎么找这个目录**：查该产品文档里的 `Skills` / `Agent Skills` / `技能目录`，注意区分项目级（`<项目>/.xxx/skills`）与用户级（`~/.xxx/skills`）；先跑 `--list-agents` 看有没有已收录的路径，没有就用 `--target`。若某产品完全不支持按目录加载 Skill，把它当纯文本用：把 `SKILL.md` 内容贴进该 Agent 的规则 / 自定义指令。
+
+**装完验证**：目标目录里有 `SKILL.md`；让该 Agent 说「检查 3D 场景调试接好没」能读到本技能。`--target` 只负责复制文件，**是否自动发现由该产品自己的目录约定决定**。
 
 ### 3.2 安装运行库
 

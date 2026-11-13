@@ -176,6 +176,7 @@ try {
     assert.match(help.stdout, /three-scene-debugger install/);
     assert.match(help.stdout, /does not start the browser debugger/);
     assert.match(help.stdout, /published to the npm registry/);
+    assert.match(help.stdout, /Any other agent can\s+install with --target/);
     assert.equal(fs.existsSync(path.join(cwd, '.claude')), false);
     const version = run(['--version'], cwd, home);
     assert.equal(version.status, 0, version.stderr);
@@ -253,6 +254,24 @@ try {
     const intoEmpty = run(['install', '--target', '.'], empty, home);
     assert.equal(intoEmpty.status, 0, intoEmpty.stderr);
     assert.ok(fs.existsSync(path.join(empty, 'SKILL.md')));
+  });
+
+  test('--target expands a leading ~ against home instead of the cwd', () => {
+    const cwd = tempDir('tsd-tilde-cwd-');
+    const tildeHome = tempDir('tsd-tilde-home-');
+    const result = run(['install', '--target', path.join('~', '.workbuddy', 'skills', SKILL_NAME)], cwd, tildeHome);
+    assert.equal(result.status, 0, result.stderr);
+    const dest = path.join(tildeHome, '.workbuddy', 'skills', SKILL_NAME);
+    assertSkillTree(dest);
+    assert.equal(result.stdout.includes(dest), true);
+    // A literal "~" directory under the cwd means the value was resolved as a
+    // relative path - the exact failure the public "--target ~/..." example hits.
+    assert.equal(fs.existsSync(path.join(cwd, '~')), false);
+    assert.equal(fs.existsSync(path.join(cwd, '~', '.workbuddy')), false);
+    // "~" alone lands on home, which the installer refuses on purpose.
+    expectFail(run(['install', '--target', '~'], cwd, tildeHome), /home directory itself/);
+    // "~user" is not a shell feature we emulate; refuse instead of guessing.
+    expectFail(run(['install', '--target', '~nobody/skills'], cwd, tildeHome), /Only "~" and/);
   });
 
   test('existing foreign directories and non-directories are refused even with --force', () => {
@@ -374,6 +393,7 @@ try {
     const globalHome = tempDir('tsd-agents-home-');
     const list = run(['--list-agents'], cwd, globalHome);
     assert.equal(list.status, 0, list.stderr);
+    assert.match(list.stdout, /NOT a list of supported/);
     assert.equal(fs.existsSync(path.join(cwd, '.agents')), false);
     for (const agent of AGENTS) {
       assert.match(list.stdout, new RegExp('^' + agent.id + '\\t', 'm'));
